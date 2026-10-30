@@ -24,3 +24,16 @@ export function rebasedBenchmark(portfolio,indexPoints,metric,options={}){
 }
 export function benchmarkReturns(points,baseline){const first=baseline??points.find(p=>p.level>0)?.level;return points.map(p=>({...p,returnPct:first>0&&p.level>0?(p.level/first-1)*100:null}));}
 export function seriesSegments(points,key){const segments=[];let segment=[];for(const p of points){if(Number.isFinite(p[key]))segment.push(p);else if(segment.length){segments.push(segment);segment=[];}}if(segment.length)segments.push(segment);return segments;}
+// Daily flow-adjusted approximation: infer net cash entering/leaving securities
+// from the value change less recorded profit. Assume new capital arrives before
+// that day's return. Missing valuations break the chain; never bridge a gap.
+export function portfolioComparison(portfolio,indexPoints){
+ const levels=new Map(indexPoints.map(p=>[p.date,p.level]));let segment=[],wealth=1,previous=null,base=null;
+ for(const p of portfolio){const level=levels.get(p.date);if(!Number.isFinite(p.value)||!Number.isFinite(p.gain)||!(level>0)){segment=[];previous=null;continue;}
+  if(!previous){if(!(p.value>0))continue;wealth=1;base=level;segment=[{...p,portfolioPct:0,indexPct:0}];previous=p;continue;}
+  const profit=p.gain-previous.gain,flow=p.value-previous.value-profit,capital=previous.value+Math.max(0,flow);
+  if(!(capital>0)||1+profit/capital<0){segment=[];previous=null;continue;}
+  wealth*=1+profit/capital;segment.push({...p,portfolioPct:(wealth-1)*100,indexPct:(level/base-1)*100});previous=p;
+ }
+ return segment;
+}

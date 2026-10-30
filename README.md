@@ -95,7 +95,7 @@ PDFs, old `.xls` files and position-only reports cannot reconstruct the trade le
 
 Provider terms and market-data licensing are separate from this source code. Refreshing every minute does not guarantee exchange real-time prices.
 
-The S&P 500 reference uses the price index (`^GSPC`), which excludes reinvested dividends. Historical comparisons convert USD index levels using daily reference FX and rebase to the portfolio’s starting market value. Portfolio cash flows affect the comparison; it is not a time-weighted performance comparison. Dividend charts keep the index on a separate percentage scale and do not project future index prices.
+The S&P 500 reference uses the price index (`^GSPC`), which excludes reinvested dividends. Historical currency-value charts are kept separate from percentage comparisons. Percentage comparisons use daily flow-adjusted portfolio return estimates and daily FX-converted index returns over the same continuous data window. New capital is assumed available before each day’s return; missing valuations restart the window. These estimates are not exact broker-reported returns. Dividend charts keep the index on a separate percentage scale and do not project future index prices.
 
 ## Storage and deployment
 
