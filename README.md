@@ -13,6 +13,7 @@ A self-hosted investment portfolio and dividend tracker with a neutral dark them
 - Historical performance reconstructed from recorded trades, historical daily prices and reference FX, with explicit gaps where data is unavailable.
 - Separate charts for portfolio value, total return and dividends, with labeled currency scales.
 - Monthly/yearly received dividends and separately labeled future estimates.
+- S&P 500 price-index comparisons on minute and historical charts, plus separate percentage references beside dividend and allocation charts.
 - Read-only Trading 212 Invest/Stocks ISA positions and dividend-history pagination.
 - XTB Excel/CSV imports for IKE and separate standard PLN, EUR and USD cash accounts; multi-file/folder selection, preview, deduplication and reconciliation.
 - Sortable holdings and dividend tables, company names, account filters and JSON backup/restore.
@@ -93,6 +94,8 @@ PDFs, old `.xls` files and position-only reports cannot reconstruct the trade le
 | [Finnhub](https://finnhub.io/docs/api/quote) | Optional US quote override | Requires your own server-side key and appropriate entitlement. |
 
 Provider terms and market-data licensing are separate from this source code. Refreshing every minute does not guarantee exchange real-time prices.
+
+The S&P 500 reference uses the price index (`^GSPC`), which excludes reinvested dividends. Historical comparisons convert USD index levels using daily reference FX and rebase to the portfolio’s starting market value. Portfolio cash flows affect the comparison; it is not a time-weighted performance comparison. Dividend charts keep the index on a separate percentage scale and do not project future index prices.
 
 ## Storage and deployment
 

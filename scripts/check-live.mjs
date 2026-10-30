@@ -17,10 +17,11 @@ for(const field of ['reference','amount','currency','paidOn'])assert.ok(spec.com
 console.log('Trading 212 read-only API contract: healthy (no account credentials used)');
 
 // Release checks include the minute feeds used by the European portfolio UI.
-const minuteSymbols={'SGLN.L':'GBP','EQQU.L':'USD','VDEM.L':'USD','NATO.L':'USD','GAW.L':'GBP','SSLN.L':'GBP','XSX7.DE':'EUR','SPY5.L':'USD','EUDF.DE':'EUR','DFNX.L':'GBP','DFSV.DE':'EUR','5J50.DE':'EUR'};
+const minuteSymbols={'SGLN.L':'GBP','EQQU.L':'USD','VDEM.L':'USD','NATO.L':'USD','GAW.L':'GBP','SSLN.L':'GBP','XSX7.DE':'EUR','SPY5.L':'USD','EUDF.DE':'EUR','DFNX.L':'GBP','DFSV.DE':'EUR','5J50.DE':'EUR','^GSPC':'USD'};
 const entries=Object.entries(minuteSymbols);let next=0;
 await Promise.all(Array.from({length:3},async()=>{while(next<entries.length){const [symbol,currency]=entries[next++],feed=await check('/api/intraday?symbol='+encodeURIComponent(symbol));assert.equal(feed.currency,currency,`${symbol}: incorrect quote units`);assert.ok(!feed.stale,`${symbol}: stale minute cache`);assert.ok(feed.previousClose>0,`${symbol}: previous close missing`);assert.ok(feed.points.length>1,`${symbol}: minute series missing`);assert.ok(feed.points.every(p=>Number.isFinite(p.time)&&p.close>0),`${symbol}: invalid minute bars`);assert.ok(Date.now()-feed.points.at(-1).time<7*86400000,`${symbol}: minute feed older than 7 days`);}}));
 const start=new Date(Date.now()-30*86400000).toISOString().slice(0,10);
 const history=await check('/api/history?symbol=AAPL&start='+start);assert.ok(history.history.length>10&&!history.stale,'Historical prices unavailable');
+const indexHistory=await check('/api/history?symbol=%5EGSPC&start='+start);assert.equal(indexHistory.currency,'USD');assert.ok(indexHistory.history.length>10&&!indexHistory.stale,'S&P 500 benchmark history unavailable');
 const historicalFx=await check('/api/fx/history?base=PLN&start='+start+'&currencies=USD,EUR,SEK');for(const currency of ['USD','EUR','SEK'])assert.ok(historicalFx.rows.some(r=>r.quote===currency&&r.rate>0),'Missing historical FX: '+currency);
-console.log(`Release feeds healthy: ${entries.length} European minute listings, historical prices and historical FX`);
+console.log(`Release feeds healthy: ${entries.length} minute listings including S&P 500, historical prices and historical FX`);
