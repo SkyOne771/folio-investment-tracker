@@ -1,0 +1,34 @@
+name: App and market-data checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
+permissions:
+  contents: read
+concurrency:
+  group: health-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run check:public
+      - run: npm run build
+      - run: node scripts/validate-artifact.mjs
+      - run: npm test
+      - name: Check live market providers and deployment when configured
+        if: github.event_name != 'pull_request'
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+        run: npm run check:live

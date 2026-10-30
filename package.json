@@ -1,0 +1,22 @@
+{
+  "name": "investment-tracking-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/dev.mjs",
+    "test": "node --test tests/*.test.js",
+    "check:live": "node scripts/check-live.mjs",
+    "start:e2e": "node scripts/e2e-server.mjs",
+    "verify": "npm run check:public && npm run build && node scripts/validate-artifact.mjs && npm test && npm run check:live",
+    "check:public": "node scripts/check-public-files.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "fflate": "^0.8.3"
+  },
+  "dependencies": {
+    "read-excel-file": "^9.3.13"
+  }
+}

@@ -1,0 +1,13 @@
+import {build} from 'esbuild';
+import {mkdir,readFile,writeFile,copyFile,rm} from 'node:fs/promises';
+await mkdir('worker',{recursive:true});
+const assets={};
+for(const [key,file] of Object.entries({page:'src/index.html',client:'src/client.js',coreSource:'src/core.js',style:'src/style.css'})) assets[key]=await readFile(file,'utf8');
+const clientBuild=await build({entryPoints:['src/client.js'],bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',external:['/core.js'],minify:true});
+assets.client=clientBuild.outputFiles[0].text+'\n/* Third-party notices\n'+(await readFile('THIRD_PARTY_NOTICES.txt','utf8')).replaceAll('*/','* /')+'\n*/';
+await writeFile('worker/assets.js',Object.entries(assets).map(([k,v])=>`export const ${k}=${JSON.stringify(v)};`).join('\n'));
+await rm('dist',{recursive:true,force:true});
+await mkdir('dist/server',{recursive:true}); await mkdir('dist/.openai',{recursive:true});
+await build({entryPoints:['src/worker.js'],outfile:'dist/server/index.js',bundle:true,format:'esm',platform:'browser',target:'es2022'});
+await copyFile('.openai/hosting.json','dist/.openai/hosting.json');
+console.log('Built Worker and browser app');
