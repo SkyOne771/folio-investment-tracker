@@ -20,6 +20,7 @@ A self-hosted investment portfolio and dividend tracker with a neutral dark them
 - Color-coded transaction labels: green buys, red sells and blue dividend income.
 - Ten display currencies: PLN, USD, EUR, GBP, CHF, CAD, JPY, AUD, SEK and DKK.
 - Responsive light/dark layouts and data-health checks.
+- Expand performance, allocation and dividend charts to fill the viewport; close with the button or Escape.
 
 ## Quick start
 
