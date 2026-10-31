@@ -37,3 +37,7 @@ export function portfolioComparison(portfolio,indexPoints){
  }
  return segment;
 }
+export function zeroBasedIntraday(points,indexPoints){
+ const baseline=points.find(p=>p.value>0)?.value,index=new Map(indexPoints.map(p=>[p.time,p.level])),firstLevel=points.length?index.get(points[0].time):null;
+ return points.map(p=>({...p,returnPct:baseline>0&&Number.isFinite(p.value)?(p.value/baseline-1)*100:null,benchmarkReturn:firstLevel>0&&index.get(p.time)>0?(index.get(p.time)/firstLevel-1)*100:null}));
+}

@@ -9,7 +9,7 @@ A self-hosted investment portfolio and dividend tracker with a neutral dark them
 ## Features
 
 - Portfolio value, invested capital, realized/unrealized gains and recorded dividend income.
-- One-day charts with one-minute price intervals, previous-close changes and hover values.
+- One-day charts with one-minute intervals, a 0% starting point, a dotted zero baseline, and percentage/amount hover values.
 - Historical performance reconstructed from recorded trades, historical daily prices and reference FX, with explicit gaps where data is unavailable.
 - Separate charts for portfolio value, total return and dividends, with labeled currency scales.
 - Monthly/yearly received dividends and separately labeled future estimates.
