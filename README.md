@@ -17,6 +17,7 @@ A self-hosted investment portfolio and dividend tracker with a neutral dark them
 - Read-only Trading 212 Invest/Stocks ISA positions and dividend-history pagination.
 - XTB Excel/CSV imports for IKE and separate standard PLN, EUR and USD cash accounts; multi-file/folder selection, preview, deduplication and reconciliation.
 - Sortable holdings and dividend tables, company names, account filters and JSON backup/restore.
+- Color-coded transaction labels: green buys, red sells and blue dividend income.
 - Ten display currencies: PLN, USD, EUR, GBP, CHF, CAD, JPY, AUD, SEK and DKK.
 - Responsive light/dark layouts and data-health checks.
 
@@ -82,7 +83,7 @@ PDFs, old `.xls` files and position-only reports cannot reconstruct the trade le
 - **Invested capital** is the acquisition cost of current holdings, including recorded purchase fees. It is not lifetime cash deposits.
 - **Recorded purchases** sums recorded buys, including fees. Reinvested sale proceeds may be counted again. A broker snapshot does not supply lifetime purchase history.
 - Sales use average acquisition cost and recorded sale fees. Dividend income includes recorded withholding, reversals and tax refunds.
-- **1D charts** value current share quantities at available minute prices using daily reference FX. They do not reconstruct today's trades, cash flows or intraday FX changes. Partial coverage is labeled explicitly.
+- **1D charts** start both portfolio and benchmark lines at 0% at the first available portfolio minute of the displayed session, with a dotted zero baseline. They value current share quantities at available minute prices using daily reference FX. They do not reconstruct today's trades, cash flows or intraday FX changes. Partial coverage is labeled explicitly.
 - Historical charts replay available trade ledgers with historical daily closes and reference FX. Unavailable prices produce gaps, not invented prices.
 - Dividend forecasts repeat historical distributions at unchanged share counts and estimate payment dates. They are gross heuristics, not confirmed company announcements.
 - This is a portfolio tracker, not a tax-reporting engine or full cash-accounting system.
