@@ -18,6 +18,7 @@ A self-hosted investment portfolio and dividend tracker with a neutral dark them
 - XTB Excel/CSV imports for IKE and separate standard PLN, EUR and USD cash accounts; multi-file/folder selection, preview, deduplication and reconciliation.
 - Sortable holdings and dividend tables, company names, account filters and JSON backup/restore.
 - Position changes for 1D, 1W, 1M, 3M and 1Y, in display-currency amounts and native price percentages; All shows unrealised return since purchase. Period amounts use current shares and fixed reference FX, excluding trades and dividends.
+- Company and fund-issuer icons bundled locally, with letter fallbacks. Viewing a portfolio makes no external logo-service requests.
 - Color-coded transaction labels: green buys, red sells and blue dividend income.
 - Ten display currencies: PLN, USD, EUR, GBP, CHF, CAD, JPY, AUD, SEK and DKK.
 - Optional currency-influence columns for 1D–1Y: price effect at starting FX, currency effect including the interaction, and their combined change. Uses current shares and historical/current daily reference FX; excludes trades and dividends. All-time purchase-date attribution is unavailable.

@@ -67,3 +67,14 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+Company and fund issuer icons
+-----------------------------
+Public website favicons are bundled in src/asset-logo-data.js, identified by their
+source domains. Retrieved through Google's favicon service for visual brand
+identification. Company names, logos and trademarks belong to their respective
+owners. No affiliation or endorsement is implied. Unknown issuers retain a letter
+icon. The application does not contact external logo services at runtime.
+The Vanguard wordmark is sourced from Wikimedia Commons, File:Vanguard.png
+(https://commons.wikimedia.org/wiki/File:Vanguard.png), attributed to The Vanguard
+Group. Other bundled icons are public website favicons as described above.

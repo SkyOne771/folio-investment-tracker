@@ -65,3 +65,5 @@ aside{width:184px;padding:26px 15px}.brand{font-size:32px;margin:0 12px 35px}.wo
 @media(max-width:760px){.theme-select{max-width:86px;padding:7px 3px;font-size:10px}[data-appearance=midnight] .panel{padding:17px 15px}[data-appearance=midnight] .panel.chart-expanded{padding:18px}}
 :root[data-appearance=midnight] .panel.chart-expanded .chart{height:clamp(260px,48vh,620px);max-height:none}@media(max-width:760px){:root[data-appearance=midnight] .panel.chart-expanded .chart{height:38vh}}
 .currency-effect-toggle{display:inline-flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;color:var(--text)}.currency-effect-toggle input{width:16px;height:16px;accent-color:var(--accent);margin:0}.currency-effect-toggle:focus-within{outline:2px solid var(--focus);outline-offset:4px}
+.ticker-icon{position:relative;flex-shrink:0;overflow:hidden}.ticker-icon .asset-logo{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:4px;background:#fff;border-radius:inherit;box-sizing:border-box}
+.ticker-icon:has(.asset-logo){width:32px;height:32px;min-width:32px}.ticker-icon .asset-logo{padding:3px}

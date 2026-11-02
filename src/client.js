@@ -1,3 +1,4 @@
+import {assetLogo} from './asset-logos.js';
 import {currencyInfluence} from './currency-influence.js';
 import {holdingChange,holdingAnchor,HOLDING_PERIODS} from './holding-change.js';
 import {bindChartExpand} from './chart-expand.js';
@@ -55,7 +56,7 @@ const queuedRefresh=createRefreshQueue(async()=>{busy=true;render();$('#refresh'
  try{health=await api('/api/health');}catch(e){errors.push(e.message);}busy=false;lastRefresh=new Date();capturePerformance();$('#refresh').disabled=false;$('#refresh-status').textContent=errors.length?'Some data unavailable':'Updated '+lastRefresh.toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'});render();loadBenchmark(true);loadPositionHistory();if(performanceRange===1)loadIntraday(true);loadPerformanceHistory().catch(()=>{historyData.loading=false;historyData.errors.push('Historical data could not be loaded. Refresh to retry.');render();});
 });
 function assetName(h){const position=brokerRows().find(p=>p.symbol===h.symbol||(h.brokerTicker&&p.brokerTicker===h.brokerTicker));const identifiers=new Set([h.symbol,h.brokerTicker,position?.brokerTicker].filter(Boolean).flatMap(s=>[s,s.replaceAll('_','-')]).map(s=>s.toUpperCase()));return [h.name,position?.name,quotes[h.symbol]?.name,state.assetNames?.[h.symbol],state.transactions.find(t=>t.symbol===h.symbol&&t.name)?.name].find(n=>typeof n==='string'&&n.trim()&&!identifiers.has(n.trim().toUpperCase()))?.trim()||h.symbol;}
-function ticker(h){const name=assetName(h);return `<div class="ticker"><span class="ticker-icon">${esc(name.slice(0,1))}</span><div><strong>${esc(name)}</strong><small>${esc(h.symbol)}${h.accountId?' · '+esc(accountLabel(h.accountId)):''}</small></div></div>`;}
+function ticker(h){const name=assetName(h),logo=assetLogo({...h,name});return `<div class="ticker"><span class="ticker-icon"><span aria-hidden="true">${esc(name.slice(0,1))}</span>${logo?`<img class="asset-logo" src="${logo}" alt="" width="32" height="32" loading="lazy" decoding="async">`:''}</span><div><strong>${esc(name)}</strong><small>${esc(h.symbol)}${h.accountId?' · '+esc(accountLabel(h.accountId)):''}</small></div></div>`;}
 function cards(s,f){const c=performanceContext(),capital=investedCapital(c.tx,state.base,fx,c.holdings,c.broker),p=portfolioPerformance(c.tx,quotes,state.base,fx,c.holdings,c.broker),income=dividendIncome(c.tx,f.events,state.base,fx);const earned=p.complete?p.realized+p.paid:null;return `<div class="cards income-cards">${[
  ['Portfolio value',p.complete?p.value:null,'Current investments · cash excluded'],
  ['Total return',p.complete?p.gain:null,'Realised + unrealised gains + dividends recorded'],
