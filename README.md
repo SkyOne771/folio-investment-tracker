@@ -20,7 +20,8 @@ A self-hosted investment portfolio and dividend tracker with a neutral dark them
 - Position changes for 1D, 1W, 1M, 3M and 1Y, in display-currency amounts and native price percentages; All shows unrealised return since purchase. Period amounts use current shares and fixed reference FX, excluding trades and dividends.
 - Color-coded transaction labels: green buys, red sells and blue dividend income.
 - Ten display currencies: PLN, USD, EUR, GBP, CHF, CAD, JPY, AUD, SEK and DKK.
-- Responsive light/dark layouts and data-health checks.
+- Three saved appearance choices: Light, Dark and Midnight. Midnight uses a black canvas, charcoal cards, compact spacing and green/red performance colors.
+- Responsive layouts and data-health checks.
 - Expand performance, allocation and dividend charts to fill the viewport; close with the button or Escape.
 
 ## Quick start
