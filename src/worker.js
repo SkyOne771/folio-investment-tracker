@@ -20,10 +20,10 @@ export async function quote(symbol,env={}){
 export async function intradayQuote(symbol){return cached(`intraday:${symbol}`,60000,async()=>{
  const providerSymbol=({FB:'META',PBRA:'PBR-A',BRKB:'BRK-B'})[symbol]||symbol;
  const data=await upstream(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(providerSymbol)}?range=1d&interval=1m`),c=data.chart?.result?.[0],m=c?.meta;
- if(!m?.currency||!c.timestamp?.length)throw Error('Minute prices unavailable for this instrument.');
- const scale=m.currency==='GBp'?0.01:1,points=c.timestamp.map((t,i)=>({time:t*1000,close:c.indicators?.quote?.[0]?.close?.[i]*scale})).filter(p=>Number.isFinite(p.time)&&Number.isFinite(p.close)&&p.close>0);
- if(!points.length)throw Error('No usable minute prices for this session.');
- return {symbol,currency:m.currency==='GBp'?'GBP':m.currency,previousClose:m.chartPreviousClose*scale,points,fetchedAt:new Date().toISOString(),source:'Yahoo Finance · 1-minute intervals · may be delayed'};
+ if(!m?.currency)throw Error('Minute prices unavailable for this instrument.');
+ const scale=m.currency==='GBp'?0.01:1,points=(c.timestamp||[]).map((t,i)=>({time:t*1000,close:c.indicators?.quote?.[0]?.close?.[i]*scale})).filter(p=>Number.isFinite(p.time)&&Number.isFinite(p.close)&&p.close>0);
+ const previousClose=(m.previousClose??m.chartPreviousClose)*scale;if(!points.length&&!(previousClose>0))throw Error('No usable minute prices or previous close for this session.');
+ return {symbol,currency:m.currency==='GBp'?'GBP':m.currency,previousClose,points,awaitingTrades:!points.length,asOf:m.regularMarketTime?new Date(m.regularMarketTime*1000).toISOString():null,fetchedAt:new Date().toISOString(),source:'Yahoo Finance · 1-minute intervals · may be delayed'};
  });}
 export async function fxRates(base){return cached(`fx:${base}`,3600000,async()=>{const rows=await upstream(`https://api.frankfurter.dev/v2/rates?base=${base}&quotes=USD,EUR,GBP,PLN,CHF,CAD,JPY,AUD,SEK,DKK`);if(!Array.isArray(rows)||!rows.length||rows.some(r=>!Number.isFinite(r.rate)||r.rate<=0))throw Error('Invalid FX response');return {base,date:rows[0].date,rates:Object.fromEntries([[base,1],...rows.map(r=>[r.quote,r.rate])]),source:'Frankfurter daily reference rates'};});}
 export async function priceHistory(symbol,start){return cached(`history:${symbol}:${start}`,6*3600000,async()=>{
