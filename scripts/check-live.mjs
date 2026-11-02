@@ -25,3 +25,6 @@ const history=await check('/api/history?symbol=AAPL&start='+start);assert.ok(his
 const indexHistory=await check('/api/history?symbol=%5EGSPC&start='+start);assert.equal(indexHistory.currency,'USD');assert.ok(indexHistory.history.length>10&&!indexHistory.stale,'S&P 500 benchmark history unavailable');
 const historicalFx=await check('/api/fx/history?base=PLN&start='+start+'&currencies=USD,EUR,SEK');for(const currency of ['USD','EUR','SEK'])assert.ok(historicalFx.rows.some(r=>r.quote===currency&&r.rate>0),'Missing historical FX: '+currency);
 console.log(`Release feeds healthy: ${entries.length} minute listings including S&P 500, historical prices and historical FX. Awaiting session trades: ${awaiting.join(', ')||'none'}`);
+
+for(const symbol of ['USDPLN=X','EURPLN=X','GBPPLN=X','SEKPLN=X']){const feed=await check('/api/intraday?symbol='+encodeURIComponent(symbol));assert.equal(feed.currency,'PLN',symbol+': FX quote direction changed');assert.ok(!feed.stale&&feed.points.length>0,symbol+': FX minute feed unavailable');assert.ok(feed.points.every(p=>p.close>0&&Number.isFinite(p.time)),symbol+': invalid minute FX');assert.ok(Date.now()-feed.points.at(-1).time<7*86400000,symbol+': FX series older than seven days');}
+console.log('Minute FX chart feeds healthy: USD, EUR, GBP and SEK against PLN');
