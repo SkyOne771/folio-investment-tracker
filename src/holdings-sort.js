@@ -1,4 +1,4 @@
-export const HOLDING_SORT_KEYS=['asset','price','quantity','value','gain','weight'];
+export const HOLDING_SORT_KEYS=['asset','price','quantity','value','gain','weight','change'];
 export function sortHoldings(rows,key,direction,{name=h=>h.symbol,price=h=>h.quote?.price,totalValue=1}={}){
  if(!HOLDING_SORT_KEYS.includes(key))return [...rows];
  const value=h=>key==='asset'?name(h):key==='price'?price(h):key==='weight'?(totalValue>0?h.value:null):h[key];

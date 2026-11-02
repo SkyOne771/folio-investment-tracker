@@ -17,6 +17,7 @@ A self-hosted investment portfolio and dividend tracker with a neutral dark them
 - Read-only Trading 212 Invest/Stocks ISA positions and dividend-history pagination.
 - XTB Excel/CSV imports for IKE and separate standard PLN, EUR and USD cash accounts; multi-file/folder selection, preview, deduplication and reconciliation.
 - Sortable holdings and dividend tables, company names, account filters and JSON backup/restore.
+- Position changes for 1D, 1W, 1M, 3M and 1Y, in display-currency amounts and native price percentages; All shows unrealised return since purchase. Period amounts use current shares and fixed reference FX, excluding trades and dividends.
 - Color-coded transaction labels: green buys, red sells and blue dividend income.
 - Ten display currencies: PLN, USD, EUR, GBP, CHF, CAD, JPY, AUD, SEK and DKK.
 - Responsive light/dark layouts and data-health checks.
