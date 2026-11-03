@@ -11,3 +11,6 @@ export function currencyMinutePortfolio(points,holdings,priceFeeds,fxFeeds,base)
 }
 
 export function currencyIndexPoints(points,feed,base){if(base==='USD')return points;const rates=[...(feed?.points||[])].map(p=>({...p,time:Math.floor(p.time/60000)*60000})).sort((a,b)=>a.time-b.time);return points.map(p=>{const rate=rates.filter(r=>r.time<=p.time&&r.close>0).at(-1);return {...p,level:feed?.currency===base&&!feed?.stale&&rate&&p.time-rate.time<=7*86400000&&p.level>0?p.level*rate.close:null};});}
+
+export function historicalCurrencyPoints(actual,fixed,metric){const byDate=new Map(fixed.map(p=>[p.date,p]));return actual.map(p=>{const value=byDate.get(p.date)?.[metric];return {...p,fixedMetric:Number.isFinite(p[metric])&&Number.isFinite(value)?value:null,currencyMetric:Number.isFinite(p[metric])&&Number.isFinite(value)?p[metric]-value:null};});}
+export function currencyComparisonPoints(actual,fixed){if(!actual.length||!fixed.length||actual[0].date!==fixed[0].date)return actual.map(p=>({...p,fixedPct:null,currencyPct:null}));const byDate=new Map(fixed.map(p=>[p.date,p.portfolioPct]));return actual.map(p=>{const fixedPct=byDate.get(p.date);return {...p,fixedPct:Number.isFinite(fixedPct)?fixedPct:null,currencyPct:Number.isFinite(fixedPct)?p.portfolioPct-fixedPct:null};});}

@@ -10,14 +10,14 @@ export function historicalClose(series,day){
  let price=row.close;for(const s of series.splits||[]){const date=s.day||new Date(s.date*1000).toISOString().slice(0,10);if(date>day&&Number(s.numerator)>0&&Number(s.denominator)>0)price*=s.numerator/s.denominator;}
  return Number.isFinite(price)&&price>0?price:null;
 }
-export function reconstructPerformance(transactions,series,fxRows,base,end=new Date().toISOString().slice(0,10)){
+export function reconstructPerformance(transactions,series,fxRows,base,end=new Date().toISOString().slice(0,10),options={}){
  const tx=transactions.filter(t=>t.date<=end).sort((a,b)=>a.date.localeCompare(b.date));if(!tx.length)return {points:[],missing:[]};
  const start=tx[0].date,points=[],missing=new Set(),rates={},currencyDates={};let cursor=0,fxCursor=0;
- const rows=[...fxRows].sort((a,b)=>a.date.localeCompare(b.date));
+ const rows=[...fxRows].sort((a,b)=>a.date.localeCompare(b.date)),fixedRates={};if(options.fixedFxDate){for(const r of rows)if(r.base===base&&r.date<=options.fixedFxDate&&Date.parse(options.fixedFxDate)-Date.parse(r.date)<=7*86400000&&r.rate>0)fixedRates[r.quote]={[base]:1/r.rate};}
  for(let ms=Date.parse(start);ms<=Date.parse(end);ms+=86400000){const day=new Date(ms).toISOString().slice(0,10);
   while(cursor<tx.length&&tx[cursor].date<=day)cursor++;
   while(fxCursor<rows.length&&rows[fxCursor].date<=day){const r=rows[fxCursor++];if(r.base===base&&r.rate>0){rates[r.quote]=1/r.rate;currencyDates[r.quote]=r.date;}}
-  const dayFx=Object.fromEntries(Object.entries(rates).filter(([c])=>ms-Date.parse(currencyDates[c])<=7*86400000).map(([c,rate])=>[c,{[base]:rate}]));
+  const dayFx=options.fixedFxDate?fixedRates:Object.fromEntries(Object.entries(rates).filter(([c])=>ms-Date.parse(currencyDates[c])<=7*86400000).map(([c,rate])=>[c,{[base]:rate}]));
   const current=tx.slice(0,cursor),holdings=ledger(current).holdings,quotes={};
   for(const h of holdings){const s=series[h.symbol],price=historicalClose(s,day);if(price!==null)quotes[h.symbol]={currency:s.currency,price};}
   const total=summary(current,quotes,base,dayFx);
