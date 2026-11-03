@@ -6,8 +6,11 @@ export function portfolioPerformance(transactions,quotes,base,fx,holdings=[],bro
  if(i&&['currentValue','totalCost','realizedProfitLoss','unrealizedProfitLoss'].every(k=>Number.isFinite(i[k]))){
   const manual=summary(transactions,quotes,base,fx);
   const amounts=Object.fromEntries(Object.entries(i).map(([k,v])=>[k,convert(v,broker.currency,base,fx)]));
-  if(Object.values(amounts).some(v=>v===null)||manual.missing.length)return {complete:false};
-  return {complete:true,value:manual.value+amounts.currentValue,cost:manual.cost+amounts.totalCost,gain:manual.totalGain+amounts.realizedProfitLoss+amounts.unrealizedProfitLoss,paid:manual.paid,realized:manual.realized+amounts.realizedProfitLoss,unrealized:manual.unrealized+amounts.unrealizedProfitLoss,brokerReported:true};
+  if(Object.values(amounts).some(v=>v===null)||total.missing.length)return {complete:false};
+  // Use the same available position prices as allocation and holdings. Advance
+  // the broker's reported P/L only by the price-value change since its snapshot.
+  const priceChange=total.value-manual.value-amounts.currentValue;
+  return {complete:true,value:total.value,cost:manual.cost+amounts.totalCost,gain:manual.totalGain+amounts.realizedProfitLoss+amounts.unrealizedProfitLoss+priceChange,paid:manual.paid,realized:manual.realized+amounts.realizedProfitLoss,unrealized:manual.unrealized+amounts.unrealizedProfitLoss+priceChange,brokerReported:true};
  }
  return {complete:!total.missing.length,value:total.value,cost:total.cost,gain:total.totalGain,paid:total.paid,realized:total.realized,unrealized:total.unrealized,brokerReported:false};
 }

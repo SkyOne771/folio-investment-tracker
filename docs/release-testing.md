@@ -44,3 +44,9 @@ Keep automated tests for failures that can corrupt balances, lose saved data, mi
 Sorting, labels, logos, chart tick formatting and other reversible presentation behavior are checked in the collaborative browser when changed. Do not add a unit test for every helper branch or repeat an invariant already covered through an import or valuation scenario. Add a regression test when a material failure is otherwise unprotected; test count and coverage percentage are not targets.
 
 Test-only maintenance does not require a production deployment or another financial import/browser run when application code and the build artifact are unchanged. Run `npm run verify` and the public-source guard before publishing the source changes.
+
+## Financial integrity acceptance checks
+
+Verify that the portfolio headline and allocation use the same available position prices and that filtered account values reconcile with the combined value within displayed rounding. When broker prices advance beyond a snapshot, retain broker-reported realised P/L and advance its unrealised P/L by the position-value change. Missing prices must make a complete headline unavailable.
+
+Inject browser storage failures when saving a manual transaction and restoring a backup: both saved records and the displayed ledger must remain unchanged, with a visible error. Reload a deliberately malformed record on an isolated origin; background refresh must preserve the raw stored data and the recovery warning. Verify export, clear and restore using that origin only. Failed or stale FX/quote refreshes must not create a new complete performance observation.
