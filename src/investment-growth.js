@@ -1,15 +1,17 @@
 // Investment-value history excludes cash. Infer net capital entering securities
-// as value change minus profit, then geometrically link daily profit rates.
+// from recorded trades where available; use value minus reported profit only
+// for saved account observations. Geometrically link the resulting profit rates.
 // Positive net capital is assumed available before that day's return. Exact
 // time-weighted returns require valuations at each external cash flow.
 export function investmentGrowth(points){
  let segment=[],previous=null,wealth=1;
  for(const p of points){
-  if(!Number.isFinite(p.value)||!Number.isFinite(p.gain)||p.value<0){segment=[];previous=null;continue;}
+  const recorded=Object.hasOwn(p,'netFlow');
+  if(!Number.isFinite(p.value)||p.value<0||(recorded?(!Number.isFinite(p.netFlow)||!Number.isFinite(p.income)):!Number.isFinite(p.gain))){segment=[];previous=null;continue;}
   if(!previous){if(!(p.value>0))continue;wealth=1;segment=[{...p,growthPct:0,periodGain:0}];previous=p;continue;}
-  const profit=p.gain-previous.gain,flow=p.value-previous.value-profit,capital=previous.value+Math.max(0,flow),factor=1+profit/capital;
+  const flow=recorded?p.netFlow-p.income:p.value-previous.value-(p.gain-previous.gain),profit=recorded?p.value-previous.value-p.netFlow+p.income:p.gain-previous.gain,capital=previous.value+Math.max(0,flow),factor=1+profit/capital;
   if(!(capital>0)||!Number.isFinite(factor)||factor<0){segment=[];previous=null;continue;}
-  wealth*=factor;segment.push({...p,growthPct:(wealth-1)*100,periodGain:p.gain-segment[0].gain});previous=p;
+  wealth*=factor;segment.push({...p,growthPct:(wealth-1)*100,periodGain:segment.at(-1).periodGain+profit});previous=p;
  }
  return segment;
 }

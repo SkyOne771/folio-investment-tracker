@@ -23,7 +23,10 @@ export function reconstructPerformance(transactions,series,fxRows,base,end=new D
   const total=summary(current,quotes,base,dayFx);
   for(const item of total.missing)missing.add(item);
   const incomeComplete=current.filter(isDividendIncome).every(t=>convert(t.amount-t.tax-t.fees,t.currency,base,dayFx)!==null);
-  points.push({date:day,gain:total.missing.length?null:total.totalGain,value:total.rows.some(h=>h.value===null)?null:total.value,paid:incomeComplete?total.paid:null});
+  // Actual cash entering/leaving securities, translated on the operation day.
+  // This distinguishes price/FX gains on existing capital from new purchases.
+  let netFlow=0,income=0,flowsComplete=true;for(const t of current.filter(t=>t.date===day)){let target,amount;if(t.type==='buy'){target='flow';amount=t.quantity*t.price+t.fees;}else if(t.type==='sell'){target='flow';amount=-(t.quantity*t.price-t.fees);}else if(isDividendIncome(t)){target='income';amount=t.amount-t.tax-t.fees;}else continue;const converted=convert(amount,t.currency,base,dayFx);if(converted===null){flowsComplete=false;continue;}if(target==='flow')netFlow+=converted;else income+=converted;}
+  points.push({date:day,gain:total.missing.length?null:total.totalGain,value:total.rows.some(h=>h.value===null)?null:total.value,paid:incomeComplete?total.paid:null,netFlow:flowsComplete?netFlow:null,income:flowsComplete?income:null});
  }
  return {points,missing:[...missing],start};
 }
