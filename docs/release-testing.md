@@ -36,3 +36,11 @@ Record the tested commit and results. The local E2E identity/storage substitutes
 ## Trading 212 CSV history
 
 Privately import original CSV files together using the dedicated header picker. Verify the combined ledger, split pairs, signed dividend corrections, GBX conversion and excluded cash-operation counts. Reimport the same and overlapping files; verify zero additions. Confirm a missing earlier purchase, conflicting operation ID, malformed CSV, cancelled preview, wrong account/environment and unavailable storage cannot change the existing portfolio. Verify current broker holdings, API dividends, XTB accounts and the encrypted saved connection are unchanged. Check the read-only CSV ledger in Activity, its pagination, market-symbol edits, historical coverage/FX/metrics and backup round trip. Use dummy broker credentials for vault checks; never publish originals or real-account results.
+
+## Automated test scope
+
+Keep automated tests for failures that can corrupt balances, lose saved data, mix accounts, misstate investment gains or expose credentials. The suite covers ledger accounting, historical valuation/FX and gaps, capital-flow exclusion, atomic and deduplicated XTB/Trading 212 imports, recovery, broker request restrictions and encrypted credential isolation.
+
+Sorting, labels, logos, chart tick formatting and other reversible presentation behavior are checked in the collaborative browser when changed. Do not add a unit test for every helper branch or repeat an invariant already covered through an import or valuation scenario. Add a regression test when a material failure is otherwise unprotected; test count and coverage percentage are not targets.
+
+Test-only maintenance does not require a production deployment or another financial import/browser run when application code and the build artifact are unchanged. Run `npm run verify` and the public-source guard before publishing the source changes.
