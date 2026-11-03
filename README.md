@@ -15,6 +15,7 @@ A self-hosted investment portfolio and dividend tracker with a neutral dark them
 - Monthly/yearly received dividends and separately labeled future estimates.
 - S&P 500 price-index comparisons on minute and historical charts, plus separate percentage references beside dividend and allocation charts.
 - Read-only Trading 212 Invest/Stocks ISA positions and dividend-history pagination.
+- Merge-only XTB recovery-file imports preserve existing Trading 212 snapshots, mappings, connections, preferences and other records. Recovery files are parsed locally and deduplicate account-scoped transactions.
 - XTB Excel/CSV imports for IKE and separate standard PLN, EUR and USD cash accounts; multi-file/folder selection, preview, deduplication and reconciliation.
 - Sortable holdings and dividend tables, company names, account filters and JSON backup/restore.
 - Position changes for 1D, 1W, 1M, 3M and 1Y, in display-currency amounts and native price percentages; All shows unrealised return since purchase. Period amounts use current shares and fixed reference FX, excluding trades and dividends.
