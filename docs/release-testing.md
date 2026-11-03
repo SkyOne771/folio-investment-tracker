@@ -32,3 +32,7 @@ Respect the app's ten-second broker request interval. A reload inside that inter
 ## Scope of evidence
 
 Record the tested commit and results. The local E2E identity/storage substitutes do not prove production sign-in, real Trading 212 account permissions or the deployed R2 binding. Check production's private access gate and read-only health/market endpoints separately. Never describe fixture connections as live authenticated-account tests. Browser viewport emulation is not a Safari/Firefox/device compatibility run.
+
+## Trading 212 CSV history
+
+Privately import original CSV files together using the dedicated header picker. Verify the combined ledger, split pairs, signed dividend corrections, GBX conversion and excluded cash-operation counts. Reimport the same and overlapping files; verify zero additions. Confirm a missing earlier purchase, conflicting operation ID, malformed CSV, cancelled preview, wrong account/environment and unavailable storage cannot change the existing portfolio. Verify current broker holdings, API dividends, XTB accounts and the encrypted saved connection are unchanged. Check the read-only CSV ledger in Activity, its pagination, market-symbol edits, historical coverage/FX/metrics and backup round trip. Use dummy broker credentials for vault checks; never publish originals or real-account results.

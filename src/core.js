@@ -28,7 +28,7 @@ export function validateTransaction(input){
  if(['buy','sell','split'].includes(t.type)&&t.quantity<=0)throw Error('Quantity must be positive.');
  if(['buy','sell'].includes(t.type)&&t.price<=0)throw Error('Price must be positive.');
  if(t.type==='dividend'&&(t.amount<=0||t.tax+t.fees>t.amount))throw Error('Dividend gross amount must cover tax and fees.');
- if(t.type==='income-adjustment'){if(input.source!=='xtb'||!['tax-refund','dividend-reversal'].includes(input.incomeKind)||t.amount===0||t.tax!==0||t.fees!==0||(input.incomeKind==='tax-refund'&&t.amount<0)||(input.incomeKind==='dividend-reversal'&&t.amount>0))throw Error('Invalid imported dividend adjustment.');t.incomeKind=input.incomeKind;}
+ if(t.type==='income-adjustment'){if(!((input.source==='xtb'&&['tax-refund','dividend-reversal'].includes(input.incomeKind))||(input.source==='t212-history'&&input.incomeKind==='dividend-adjustment'))||t.amount===0||t.tax!==0||t.fees!==0||(input.incomeKind==='tax-refund'&&t.amount<0)||(input.incomeKind==='dividend-reversal'&&t.amount>0))throw Error('Invalid imported dividend adjustment.');t.incomeKind=input.incomeKind;}
  if(input.source==='xtb'){
   const account=xtbAccountDetails(input.accountId);
   if(!account||account.accountType!==input.accountType||(account.currency&&account.currency!==t.currency)||(input.accountRef&&input.accountRef!==account.accountRef)||!CURRENCIES.includes(input.marketCurrency))throw Error('Invalid or conflicting XTB account metadata.');

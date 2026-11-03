@@ -134,3 +134,11 @@ docs/       Release-testing workflow
 ## License
 
 A source-code license has not been selected yet.
+
+## Trading 212 CSV trade history
+
+Use **↑ T212 CSV** in the header (or **Connections → Import trade history CSV**) and select all English-language Trading 212 history exports together. Review the preview and confirm the account number and Live/Demo environment: CSV files do not contain a reliable account identity. Imports merge by operation IDs and fingerprints; overlapping exports are deduplicated. A sale without an earlier purchase blocks saving, so include the full history. Split open/close pairs become one share-ratio event. Unsupported investment operations require review; deposits, withdrawals, card activity, interest and currency-conversion cash movements are counted as exclusions.
+
+The CSV ledger is stored locally and included in portfolio JSON backups. It feeds historical charts and **Activity → Trading 212 CSV history**. It does not add positions or payments to the connected snapshot: current portfolio/dividend cards continue to use API records. Historical dividend distributions and signed dividend corrections are included once in the reconstructed CSV curve. Costs and distributions are recorded in the instrument currency and translated using reference FX; this does not reproduce exact broker settlement FX profit or tax accounting. GBX quotes are converted to GBP. This is investment-value history, excluding cash balances.
+
+Review market symbols for the exchange and currency in the export. Existing broker mappings and supported US/issuer aliases are suggested; unresolved listings remain explicitly missing, rather than guessed. Delisted instruments or unavailable historical prices can leave gaps even after mapping. Snapshots for another account/environment never enter the CSV historical curve. Keep separate accounts in separate browser profiles; this version supports one Trading 212 CSV account per portfolio.
