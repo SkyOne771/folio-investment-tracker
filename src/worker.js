@@ -1,3 +1,4 @@
+import {resolveHistoryListing} from './history-resolution.js';
 import {vaultStatus,saveCredentials,loadCredentials,forgetCredentials} from './vault.js';
 import {readBrokerBody,brokerGuard,createBrokerLimiter} from './security.js';
 import {trading212,brokerReachability} from './brokers.js';
@@ -36,6 +37,7 @@ export async function priceHistory(symbol,start){return cached(`history:${symbol
  const scale=['GBp','GBX'].includes(m.currency)?0.01:1;
  return {symbol,currency:['GBp','GBX'].includes(m.currency)?'GBP':m.currency,history:c.timestamp.map((t,i)=>({date:new Date(t*1000).toISOString().slice(0,10),close:c.indicators?.quote?.[0]?.close?.[i]*scale})).filter(p=>p.close>0&&Number.isFinite(p.close)),splits:Object.values(c.events?.splits||{}),source:'Yahoo Finance daily close'};
  });}
+export async function resolvedPriceHistory(isin,currency,start){return cached(`resolved-history:${isin}:${currency}:${start}`,6*3600000,()=>resolveHistoryListing(isin,currency,id=>upstream('https://query1.finance.yahoo.com/v1/finance/search?q='+encodeURIComponent(id)+'&quotesCount=30&newsCount=0&enableFuzzyQuery=false'),symbol=>priceHistory(symbol,start),async quote=>(await historicalFx(currency,start,[quote])).rows));}
 export async function historicalFx(base,start,currencies){return cached(`fx-history:${base}:${start}:${currencies}`,6*3600000,async()=>{
  if(!currencies.length)return {rows:[]};const from=new Date(Date.parse(start)-7*86400000).toISOString().slice(0,10);
  const rows=await upstream(`https://api.frankfurter.dev/v2/rates?base=${base}&quotes=${currencies.join(',')}&from=${from}&to=${new Date().toISOString().slice(0,10)}`);
@@ -62,6 +64,7 @@ export default {async fetch(request,env={}){const url=new URL(request.url);try{
  if(url.pathname==='/api/health/brokers')return json(await brokerReachability());
  if(url.pathname==='/api/health')return json({status:'ok',version:'1.0.0',time:new Date().toISOString(),credentialVaultReady:!!env.BROKER_VAULT_KEY&&!!env.BUCKET?.get});
  if(url.pathname==='/api/intraday'){const symbol=(url.searchParams.get('symbol')||'').toUpperCase();if(!/^[A-Z0-9^][A-Z0-9.^=\-]{0,24}$/.test(symbol))return json({error:'Invalid symbol'},400);return json(await intradayQuote(symbol));}
+ if(url.pathname==='/api/history/resolve'){const isin=url.searchParams.get('isin')||'',currency=url.searchParams.get('currency')||'';if(!/^[A-Z0-9]{12}$/.test(isin)||!['USD','EUR','GBP','PLN','CHF','CAD','JPY','AUD','SEK','DKK'].includes(currency))return json({error:'Invalid instrument identity or currency'},400);return json(await resolvedPriceHistory(isin,currency,historyStart(url)));}
  if(url.pathname==='/api/history'){const symbol=(url.searchParams.get('symbol')||'').toUpperCase();if(!/^[A-Z0-9^][A-Z0-9.^=\-]{0,24}$/.test(symbol))return json({error:'Invalid symbol'},400);return json(await priceHistory(symbol,historyStart(url)));}
  if(url.pathname==='/api/fx/history'){const base=url.searchParams.get('base')||'PLN',currencies=[...new Set((url.searchParams.get('currencies')||'').split(',').filter(Boolean))].sort();const allowed=['USD','EUR','GBP','PLN','CHF','CAD','JPY','AUD','SEK','DKK'];if(!allowed.includes(base)||currencies.some(c=>!allowed.includes(c)))return json({error:'Unsupported currency'},400);return json(await historicalFx(base,historyStart(url),currencies.filter(c=>c!==base)));}
  if(url.pathname==='/api/quote'){const symbol=(url.searchParams.get('symbol')||'').toUpperCase();if(!/^[A-Z0-9^][A-Z0-9.^=\-]{0,24}$/.test(symbol))return json({error:'Invalid symbol'},400);return json(await quote(symbol,env));}
