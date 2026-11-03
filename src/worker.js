@@ -11,8 +11,8 @@ export async function quote(symbol,env={}){
  return cached(`quote:${symbol}:${env.FINNHUB_API_KEY?'fh':'yh'}`,60000,async()=>{
   const data=await upstream(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d&events=div%2Csplits`);const c=data.chart?.result?.[0],m=c?.meta;
   if(!m||!Number.isFinite(m.regularMarketPrice)||!m.currency||!m.regularMarketTime)throw Error('Price or currency unavailable for this ticker.');
-  const scale=m.currency==='GBp'?0.01:1;
-  const q={symbol,name:m.longName||m.shortName||symbol,currency:m.currency==='GBp'?'GBP':m.currency,price:m.regularMarketPrice*scale,previousClose:(m.chartPreviousClose??m.previousClose??0)*scale,asOf:new Date(m.regularMarketTime*1000).toISOString(),fetchedAt:new Date().toISOString(),source:'Yahoo Finance (unofficial)',freshness:'Provider quote; may be delayed',dividends:Object.values(c.events?.dividends||{}).map(d=>({date:new Date(d.date*1000).toISOString().slice(0,10),amount:d.amount*scale})),splits:Object.values(c.events?.splits||{}),history:(c.timestamp||[]).map((t,i)=>({date:new Date(t*1000).toISOString().slice(0,10),close:c.indicators?.quote?.[0]?.close?.[i]*scale})).filter(x=>Number.isFinite(x.close)&&x.close>0)};
+  const scale=['GBp','GBX'].includes(m.currency)?0.01:1;
+  const q={symbol,name:m.longName||m.shortName||symbol,currency:['GBp','GBX'].includes(m.currency)?'GBP':m.currency,price:m.regularMarketPrice*scale,previousClose:(m.chartPreviousClose??m.previousClose??0)*scale,asOf:new Date(m.regularMarketTime*1000).toISOString(),fetchedAt:new Date().toISOString(),source:'Yahoo Finance (unofficial)',freshness:'Provider quote; may be delayed',dividends:Object.values(c.events?.dividends||{}).map(d=>({date:new Date(d.date*1000).toISOString().slice(0,10),amount:d.amount*scale})),splits:Object.values(c.events?.splits||{}),history:(c.timestamp||[]).map((t,i)=>({date:new Date(t*1000).toISOString().slice(0,10),close:c.indicators?.quote?.[0]?.close?.[i]*scale})).filter(x=>Number.isFinite(x.close)&&x.close>0)};
   if(env.FINNHUB_API_KEY&&/^[A-Z.]+$/.test(symbol)&&q.currency==='USD'){try{const f=await upstream(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(env.FINNHUB_API_KEY)}`);if(f.c>0&&f.t>0){q.price=f.c;q.asOf=new Date(f.t*1000).toISOString();q.source='Finnhub quote · Yahoo dividends';q.freshness='Latest available Finnhub quote';}}catch{q.warning='Finnhub unavailable; using Yahoo quote';}}
   return q;
  });
@@ -21,9 +21,9 @@ export async function intradayQuote(symbol){return cached(`intraday:${symbol}`,6
  const providerSymbol=({FB:'META',PBRA:'PBR-A',BRKB:'BRK-B'})[symbol]||symbol;
  const data=await upstream(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(providerSymbol)}?range=1d&interval=1m`),c=data.chart?.result?.[0],m=c?.meta;
  if(!m?.currency)throw Error('Minute prices unavailable for this instrument.');
- const scale=m.currency==='GBp'?0.01:1,points=(c.timestamp||[]).map((t,i)=>({time:t*1000,close:c.indicators?.quote?.[0]?.close?.[i]*scale})).filter(p=>Number.isFinite(p.time)&&Number.isFinite(p.close)&&p.close>0);
+ const scale=['GBp','GBX'].includes(m.currency)?0.01:1,points=(c.timestamp||[]).map((t,i)=>({time:t*1000,close:c.indicators?.quote?.[0]?.close?.[i]*scale})).filter(p=>Number.isFinite(p.time)&&Number.isFinite(p.close)&&p.close>0);
  const previousClose=(m.previousClose??m.chartPreviousClose)*scale;if(!points.length&&!(previousClose>0))throw Error('No usable minute prices or previous close for this session.');
- return {symbol,currency:m.currency==='GBp'?'GBP':m.currency,previousClose,points,awaitingTrades:!points.length,asOf:m.regularMarketTime?new Date(m.regularMarketTime*1000).toISOString():null,fetchedAt:new Date().toISOString(),source:'Yahoo Finance · 1-minute intervals · may be delayed'};
+ return {symbol,currency:['GBp','GBX'].includes(m.currency)?'GBP':m.currency,previousClose,points,awaitingTrades:!points.length,asOf:m.regularMarketTime?new Date(m.regularMarketTime*1000).toISOString():null,fetchedAt:new Date().toISOString(),source:'Yahoo Finance · 1-minute intervals · may be delayed'};
  });}
 export async function fxRates(base){return cached(`fx:${base}`,3600000,async()=>{const rows=await upstream(`https://api.frankfurter.dev/v2/rates?base=${base}&quotes=USD,EUR,GBP,PLN,CHF,CAD,JPY,AUD,SEK,DKK`);if(!Array.isArray(rows)||!rows.length||rows.some(r=>!Number.isFinite(r.rate)||r.rate<=0))throw Error('Invalid FX response');return {base,date:rows[0].date,rates:Object.fromEntries([[base,1],...rows.map(r=>[r.quote,r.rate])]),source:'Frankfurter daily reference rates'};});}
 export async function priceHistory(symbol,start){return cached(`history:${symbol}:${start}`,6*3600000,async()=>{
@@ -33,8 +33,8 @@ export async function priceHistory(symbol,start){return cached(`history:${symbol
  const begin=Math.floor(Date.parse(start)/1000)-7*86400,end=Math.floor(Date.now()/1000)+86400;
  const data=await upstream(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(providerSymbol)}?period1=${begin}&period2=${end}&interval=1d&events=splits`);
  const c=data.chart?.result?.[0],m=c?.meta;if(!m?.currency||!c.timestamp?.length)throw Error('Historical prices unavailable for this ticker.');
- const scale=m.currency==='GBp'?0.01:1;
- return {symbol,currency:m.currency==='GBp'?'GBP':m.currency,history:c.timestamp.map((t,i)=>({date:new Date(t*1000).toISOString().slice(0,10),close:c.indicators?.quote?.[0]?.close?.[i]*scale})).filter(p=>p.close>0&&Number.isFinite(p.close)),splits:Object.values(c.events?.splits||{}),source:'Yahoo Finance daily close'};
+ const scale=['GBp','GBX'].includes(m.currency)?0.01:1;
+ return {symbol,currency:['GBp','GBX'].includes(m.currency)?'GBP':m.currency,history:c.timestamp.map((t,i)=>({date:new Date(t*1000).toISOString().slice(0,10),close:c.indicators?.quote?.[0]?.close?.[i]*scale})).filter(p=>p.close>0&&Number.isFinite(p.close)),splits:Object.values(c.events?.splits||{}),source:'Yahoo Finance daily close'};
  });}
 export async function historicalFx(base,start,currencies){return cached(`fx-history:${base}:${start}:${currencies}`,6*3600000,async()=>{
  if(!currencies.length)return {rows:[]};const from=new Date(Date.parse(start)-7*86400000).toISOString().slice(0,10);
