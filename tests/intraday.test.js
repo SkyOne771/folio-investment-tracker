@@ -3,3 +3,10 @@ const time=t=>Date.parse('2026-10-30T'+t+':00Z');const h=(symbol,quantity=1,curr
 test('aggregates every minute with previous close baseline and current quantities',()=>{const r=intradayPortfolio([h('A',2)],{A:feed([['09:00',11],['09:02',12]])},'USD',{}, {value:24,gain:4});assert.deepEqual(r.points.map(p=>p.value),[22,22,24]);assert.deepEqual(r.points.map(p=>p.gain),[2,2,4]);assert.equal(r.baseline,20);assert.equal(r.change,4);assert.equal(r.changePercent,20);});
 test('missing feeds, wrong currency and absent FX cannot produce partial portfolio totals',()=>{assert.deepEqual(intradayPortfolio([h('A'),h('B')],{A:feed([['09:00',11]])},'USD',{}).points,[]);assert.equal(intradayPortfolio([h('A')],{A:feed([['09:00',11]])},'PLN',{}).points.length,0);assert.equal(intradayPortfolio([h('A',1,'EUR')],{A:feed([['09:00',11]])},'USD',{}).points.length,0);});
 test('explicit partial coverage shows available value but never presents a partial total return',()=>{const r=intradayPortfolio([h('A'),h('B')],{A:feed([['09:00',11]])},'USD',{}, {gain:4,value:24},'Europe/Warsaw',true);assert.equal(r.points[0].value,11);assert.equal(r.points[0].gain,null);assert.deepEqual(r.missing,['B']);assert.equal(r.covered,1);assert.equal(r.total,2);});
+test('today never reuses yesterday’s curve and resumes when a fresh session arrives',()=>{
+ const yesterday=feed([['09:00',11],['09:01',12]]),holdings=[h('A')],target='2026-11-02';
+ const waiting=intradayPortfolio(holdings,{A:yesterday},'USD',{}, {},'Europe/Warsaw',true,target);
+ assert.equal(waiting.day,target);assert.equal(waiting.latestDay,'2026-10-30');assert.equal(waiting.awaitingSession,true);assert.deepEqual(waiting.points,[]);
+ const explicit=intradayPortfolio(holdings,{A:yesterday},'USD',{}, {},'Europe/Warsaw',true);assert.equal(explicit.day,'2026-10-30');assert.equal(explicit.points.length,2);
+ const fresh={currency:'USD',previousClose:12,points:[{time:Date.parse(target+'T08:00:00Z'),close:13}]};const resumed=intradayPortfolio(holdings,{A:fresh},'USD',{}, {},'Europe/Warsaw',true,target);assert.equal(resumed.day,target);assert.equal(resumed.points[0].value,13);assert.equal(resumed.latestDay,target);
+});
