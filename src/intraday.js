@@ -20,3 +20,10 @@ export function intradayPortfolio(holdings,feeds,base,fx,totals={},timeZone='Eur
  }
  const latest=points.at(-1);return {points,extended:[...new Set(extended)],carried:[...new Set(carried)],missing:[...new Set(missing)],covered:prepared.length,total:holdings.length,day,latestDay,baseline,change:latest.value-baseline,changePercent:baseline?(latest.value-baseline)/baseline*100:null};
 }
+
+// A dated close is a constant baseline, never an invented minute trade.
+export function confirmedCloseFeed(symbol,quote,now=Date.now()){
+ if(!quote||!Number.isFinite(Date.parse(quote.asOf))||Date.parse(quote.asOf)>now||now-Date.parse(quote.asOf)>7*86400000)return null;
+ const price=sessionDay(Date.parse(quote.asOf))<sessionDay(now)?quote.price:quote.previousClose;
+ return Number.isFinite(price)&&price>0?{symbol,currency:quote.currency,previousClose:price,points:[],asOf:quote.asOf,closeFallback:true,source:'Last confirmed close · minute feed unavailable'}:null;
+}

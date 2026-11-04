@@ -1,3 +1,4 @@
+import {parseEcbRates,ecbCrossRates} from './ecb-fx.js';
 import {resolveHistoryListing} from './history-resolution.js';
 import {vaultStatus,saveCredentials,loadCredentials,forgetCredentials} from './vault.js';
 import {readBrokerBody,brokerGuard,createBrokerLimiter} from './security.js';
@@ -15,20 +16,25 @@ export async function quote(symbol,env={}){
   if(!m||!Number.isFinite(m.regularMarketPrice)||!m.currency||!m.regularMarketTime)throw Error('Price or currency unavailable for this ticker.');
   const scale=['GBp','GBX'].includes(m.currency)?0.01:1;
   const q={symbol,name:m.longName||m.shortName||symbol,currency:['GBp','GBX'].includes(m.currency)?'GBP':m.currency,price:m.regularMarketPrice*scale,previousClose:(m.chartPreviousClose??m.previousClose??0)*scale,asOf:new Date(m.regularMarketTime*1000).toISOString(),fetchedAt:new Date().toISOString(),source:'Yahoo Finance (unofficial)',freshness:'Provider quote; may be delayed',dividends:Object.values(c.events?.dividends||{}).map(d=>({date:new Date(d.date*1000).toISOString().slice(0,10),amount:d.amount*scale})),splits:Object.values(c.events?.splits||{}),history:(c.timestamp||[]).map((t,i)=>({date:new Date(t*1000).toISOString().slice(0,10),close:c.indicators?.quote?.[0]?.close?.[i]*scale})).filter(x=>Number.isFinite(x.close)&&x.close>0)};
+  q.previousClose=m.previousClose>0?m.previousClose*scale:q.history.filter(p=>p.date<q.asOf.slice(0,10)).at(-1)?.close;
   if(env.FINNHUB_API_KEY&&/^[A-Z.]+$/.test(symbol)&&q.currency==='USD'){try{const f=await upstream(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(env.FINNHUB_API_KEY)}`);if(f.c>0&&f.t>0){q.price=f.c;q.asOf=new Date(f.t*1000).toISOString();q.source='Finnhub quote · Yahoo dividends';q.freshness='Latest available Finnhub quote';}}catch{q.warning='Finnhub unavailable; using Yahoo quote';}}
   return q;
  });
 }
 export async function intradayQuote(symbol){return cached(`intraday:${symbol}`,60000,async()=>{
  const providerSymbol=({FB:'META',PBRA:'PBR-A',BRKB:'BRK-B'})[symbol]||symbol;
- const data=await upstream(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(providerSymbol)}?range=1d&interval=1m&includePrePost=true`),c=data.chart?.result?.[0],m=c?.meta;
+ const data=await quoteUpstream(`/v8/finance/chart/${encodeURIComponent(providerSymbol)}?range=1d&interval=1m&includePrePost=true`),c=data.chart?.result?.[0],m=c?.meta;
  if(!m?.currency)throw Error('Minute prices unavailable for this instrument.');
  const periods=Object.entries(m.tradingPeriods||{}).filter(([name])=>['pre','regular','post'].includes(name)).flatMap(([name,rows])=>[rows].flat(Infinity).filter(p=>p?.start<p?.end).map(p=>({...p,name})));if(!periods.length)for(const [name,p] of Object.entries(m.currentTradingPeriod||{}))if(p?.start<p?.end)periods.push({...p,name});
  const scale=['GBp','GBX'].includes(m.currency)?0.01:1,points=(c.timestamp||[]).map((t,i)=>({time:t*1000,close:c.indicators?.quote?.[0]?.close?.[i]*scale,marketSession:periods.find(p=>t>=p.start&&t<p.end)?.name||'unknown'})).filter(p=>Number.isFinite(p.time)&&Number.isFinite(p.close)&&p.close>0);
  const previousClose=(m.previousClose??m.chartPreviousClose)*scale;if(!points.length&&!(previousClose>0))throw Error('No usable minute prices or previous close for this session.');
  return {symbol,currency:['GBp','GBX'].includes(m.currency)?'GBP':m.currency,previousClose,points,awaitingTrades:!points.length,asOf:points.length?new Date(points.at(-1).time).toISOString():m.regularMarketTime?new Date(m.regularMarketTime*1000).toISOString():null,extendedHoursRequested:true,fetchedAt:new Date().toISOString(),source:'Yahoo Finance · 1-minute intervals including available pre-market and after-hours · may be delayed'};
  });}
-export async function fxRates(base){return cached(`fx:${base}`,3600000,async()=>{const rows=await upstream(`https://api.frankfurter.dev/v2/rates?base=${base}&quotes=USD,EUR,GBP,PLN,CHF,CAD,JPY,AUD,SEK,DKK`);if(!Array.isArray(rows)||!rows.length||rows.some(r=>!Number.isFinite(r.rate)||r.rate<=0))throw Error('Invalid FX response');return {base,date:rows[0].date,rates:Object.fromEntries([[base,1],...rows.map(r=>[r.quote,r.rate])]),source:'Frankfurter daily reference rates'};});}
+export async function fxRates(base){return cached(`fx:${base}`,3600000,async()=>{
+ const currencies=['USD','EUR','GBP','PLN','CHF','CAD','JPY','AUD','SEK','DKK'],valid=d=>d&&/^\d{4}-\d{2}-\d{2}$/.test(d.date)&&currencies.every(c=>c===base||Number.isFinite(d.rates?.[c])&&d.rates[c]>0);
+ try{const rows=await upstream(`https://api.frankfurter.dev/v2/rates?base=${base}&quotes=${currencies.join(',')}`,7000),data={base,date:rows?.[0]?.date,rates:Object.fromEntries([[base,1],...(Array.isArray(rows)?rows:[]).map(r=>[r.quote,r.rate])]),source:'Frankfurter daily reference rates'};if(!valid(data))throw Error('Invalid FX response');return data;}
+ catch{const data=await upstream(`https://api.frankfurter.dev/v1/latest?base=${base}`,7000);if(!valid(data)||data.base!==base)throw Error('Invalid fallback FX response');return {...data,rates:{...data.rates,[base]:1},source:'Frankfurter ECB daily reference rates · fallback'};}
+ });}
 export async function priceHistory(symbol,start){return cached(`history:${symbol}:${start}`,6*3600000,async()=>{
  // Provider spellings for the same share class; FB became META on 2022-06-09.
  // https://investor.atmeta.com/investor-news/press-release-details/2022/Meta-Platforms-Inc.-to-Change-Ticker-Symbol-to-META-on-June-9/default.aspx
@@ -41,9 +47,9 @@ export async function priceHistory(symbol,start){return cached(`history:${symbol
  });}
 export async function resolvedPriceHistory(isin,currency,start){return cached(`resolved-history:${isin}:${currency}:${start}`,6*3600000,()=>resolveHistoryListing(isin,currency,id=>upstream('https://query1.finance.yahoo.com/v1/finance/search?q='+encodeURIComponent(id)+'&quotesCount=30&newsCount=0&enableFuzzyQuery=false'),symbol=>priceHistory(symbol,start),async quote=>(await historicalFx(currency,start,[quote])).rows));}
 export async function historicalFx(base,start,currencies){return cached(`fx-history:${base}:${start}:${currencies}`,6*3600000,async()=>{
- if(!currencies.length)return {rows:[]};const from=new Date(Date.parse(start)-7*86400000).toISOString().slice(0,10);
- const rows=await upstream(`https://api.frankfurter.dev/v2/rates?base=${base}&quotes=${currencies.join(',')}&from=${from}&to=${new Date().toISOString().slice(0,10)}`);
- if(!Array.isArray(rows)||!rows.length||rows.some(r=>!Number.isFinite(r.rate)||r.rate<=0))throw Error('Historical FX unavailable');return {rows,source:'Frankfurter daily reference rates'};
+ if(!currencies.length)return {rows:[]};const from=new Date(Date.parse(start)-7*86400000).toISOString().slice(0,10),to=new Date().toISOString().slice(0,10),recent=Date.now()-Date.parse(from)<85*86400000;
+ try{const data=await cached('ecb-history:'+recent,6*3600000,async()=>{const response=await fetch(`https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist${recent?'-90d':''}.xml`,{signal:AbortSignal.timeout(7000)});if(!response.ok)throw Error('ECB history unavailable');return {days:parseEcbRates(await response.text())};});const rows=ecbCrossRates(data.days,base,currencies,from,to);if(!rows.length)throw Error('No dated ECB rates for this range');return {rows,source:'European Central Bank daily reference rates',...(data.stale?{stale:true,error:data.error}:{})};}
+ catch{const rows=await upstream(`https://api.frankfurter.dev/v2/rates?base=${base}&quotes=${currencies.join(',')}&from=${from}&to=${to}`,9000);if(!Array.isArray(rows)||!rows.length||rows.some(r=>!Number.isFinite(r.rate)||r.rate<=0||r.base!==base||!currencies.includes(r.quote)||!/^\d{4}-\d{2}-\d{2}$/.test(r.date)))throw Error('Historical FX unavailable');return {rows,source:'Frankfurter daily reference rates · fallback'};}
  });}
 function historyStart(url){const start=url.searchParams.get('start')||'';if(!/^\d{4}-\d{2}-\d{2}$/.test(start)||!Number.isFinite(Date.parse(start))||new Date(start).toISOString().slice(0,10)!==start||start<'1999-01-01'||start>new Date().toISOString().slice(0,10))throw Object.assign(Error('Invalid history start date'),{status:400});return start;}
 export default {async fetch(request,env={}){const url=new URL(request.url);try{

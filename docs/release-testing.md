@@ -1,6 +1,6 @@
 # Release testing
 
-Run `npm run verify` before publication. It builds the production artifact, validates its Worker entry point, runs the automated tests and checks live quote/dividend/FX schemas, Trading 212's published read-only contract, thirteen minute feeds including the S&P 500, daily history and historical FX.
+Run `npm run verify` before publication. It builds the production artifact, validates its Worker entry point, runs the automated tests and checks live quote/dividend/FX schemas, Trading 212's published read-only contract, thirteen minute feeds including the S&P 500, daily history and historical FX. Historical FX uses the ECB’s dated EUR reference-rate downloads, crossed within each observation date, with a Frankfurter fallback. Check both a recent range and the full history path; never replace missing historical rates with current FX.
 
 Browser testing uses T3's collaborative browser. A successful unit suite does not replace these checks.
 
