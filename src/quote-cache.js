@@ -1,0 +1,7 @@
+import {CURRENCIES} from './core.js';
+const KEY='folio.last-quotes.v1',MAX_AGE=7*86400000;
+export function readQuoteCache(storage,now=Date.now()){
+ try{storage??=globalThis.localStorage;return Object.fromEntries(Object.entries(JSON.parse(storage.getItem(KEY)||'{}')).filter(([symbol,q])=>/^[A-Z0-9^][A-Z0-9.^=\-]{0,24}$/.test(symbol)&&q&&q.price>0&&Number.isFinite(q.price)&&CURRENCIES.includes(q.currency)&&Number.isFinite(Date.parse(q.asOf))&&Date.parse(q.asOf)<=now+60000&&now-Date.parse(q.asOf)<=MAX_AGE).slice(-150).map(([symbol,q])=>[symbol,{...q,symbol,stale:true,warning:'Last confirmed price retained; awaiting a successful quote refresh.'}]));}catch{return {};}
+}
+export function writeQuoteCache(storage,quotes){try{storage??=globalThis.localStorage;const entries=Object.entries(quotes).filter(([,q])=>q?.price>0&&Number.isFinite(q.price)&&CURRENCIES.includes(q.currency)&&Number.isFinite(Date.parse(q.asOf))).slice(-150).map(([symbol,q])=>[symbol,{symbol,price:q.price,currency:q.currency,asOf:q.asOf,fetchedAt:q.fetchedAt,source:q.source,name:typeof q.name==='string'?q.name.slice(0,200):symbol}]);storage.setItem(KEY,JSON.stringify(Object.fromEntries(entries)));}catch{/* Optional market cache must never block saving portfolio records. */}}
+export function clearQuoteCache(storage){try{storage??=globalThis.localStorage;storage.removeItem(KEY);}catch{}}

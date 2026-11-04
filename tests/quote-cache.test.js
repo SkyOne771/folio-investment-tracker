@@ -1,0 +1,3 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';
+import {readQuoteCache,writeQuoteCache} from '../src/quote-cache.js';
+test('reload retains only recent valid confirmed prices and never portfolio amounts',()=>{let raw;const now=Date.parse('2026-11-04T08:00:00Z'),storage={setItem:(k,v)=>raw=v,getItem:()=>raw},q={price:100,currency:'PLN',asOf:'2026-11-03T16:00:00Z',quantity:999,cost:10000};writeQuoteCache(storage,{GOOD:q,OLD:{...q,asOf:'2026-10-01T16:00:00Z'},BAD:{...q,price:NaN}});assert.ok(!raw.includes('quantity')&&!raw.includes('cost'));const restored=readQuoteCache(storage,now);assert.deepEqual(Object.keys(restored),['GOOD']);assert.equal(restored.GOOD.price,100);assert.equal(restored.GOOD.stale,true);assert.equal(restored.GOOD.asOf,q.asOf);});
