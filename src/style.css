@@ -73,3 +73,4 @@ aside{width:184px;padding:26px 15px}.brand{font-size:32px;margin:0 12px 35px}.wo
 @media(max-width:760px){#t212-import-header{font-size:11px;padding:7px}#t212-history-dialog .mapping-row{grid-template-columns:minmax(0,1fr) 110px}}
 .historical-coverage{margin:18px 0;padding:14px 16px;border:1px solid var(--border);border-radius:8px;font-size:13px}.historical-coverage p{color:var(--muted);line-height:1.6;margin:8px 0}.historical-coverage details{margin-top:12px}.historical-coverage .data-table td{font-size:12px}.historical-partial-line{stroke:#d8bd72;stroke-dasharray:5 4}.partial-history-key{display:inline-block;width:24px;border-top:2px dashed #d8bd72;margin-right:7px;vertical-align:middle}
 @media(max-width:760px){header .breadcrumb{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}header .header-actions{flex-shrink:0}}
+.minute-tooltip{max-width:min(300px,100%);overflow-wrap:anywhere}
