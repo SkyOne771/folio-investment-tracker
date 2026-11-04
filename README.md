@@ -166,3 +166,5 @@ Current portfolio value and allocation use the same available position prices. T
 Manual record writes, backup replacement and broker snapshot updates preserve the previous portfolio when browser storage fails. Unreadable stored records are preserved for recovery and are not overwritten by background refresh.
 
 The 1D view defaults to the current Warsaw calendar day. Before any holding has today’s minute trades, it displays an awaiting-prices message rather than yesterday’s movement. The previous available session can be opened explicitly and is labeled with its date. Today’s chart begins automatically when fresh minute prices arrive.
+
+The minute feed requests available pre-market and after-hours trades. Extended-hours prices are included in the portfolio curve, identified in the chart note and hover labels, and timestamped from their actual minute trades. Warsaw calendar dates can include the end of the previous US exchange session after midnight. Holdings without new trades retain their last available price; unavailable extended-hours prices are never invented. The S&P 500 cash index can remain unchanged outside its own trading session.
