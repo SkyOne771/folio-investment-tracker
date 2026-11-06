@@ -1,3 +1,3 @@
 // Accumulate dated cash flows before applying a display window. A missing
 // transaction-day conversion makes subsequent cumulative totals unknown.
-export function capitalHistory(points){let invested=0,dividends=0;return points.map(p=>{invested=invested!==null&&Number.isFinite(p.netFlow)?invested+p.netFlow:null;dividends=dividends!==null&&Number.isFinite(p.income)?dividends+p.income:null;return {...p,netInvested:invested,dividends};});}
+export function capitalHistory(points){let invested=0,dividends=0;return points.map(p=>{invested=invested!==null&&Number.isFinite(p.netFlow)?invested+p.netFlow:null;dividends=dividends!==null&&Number.isFinite(p.income)?dividends+p.income:null;return {...p,chartValue:Number.isFinite(p.value)?p.value:Number.isFinite(p.knownValue)&&p.coveredHoldings>0?p.knownValue:null,chartPartial:!Number.isFinite(p.value)&&Number.isFinite(p.knownValue)&&p.coveredHoldings>0,netInvested:invested,dividends};});}

@@ -25,3 +25,4 @@ test('split-adjusted closes are restored to historical units before and after le
  const s={TEST:{currency:'USD',history:[{date:'2025-01-02',close:5},{date:'2025-01-03',close:6}],splits:[{day:'2025-01-03',numerator:2,denominator:1}]}};
  const tx=[trade('buy','2025-01-02',10,10),trade('split','2025-01-03',2,0)];const r=reconstructPerformance(tx,s,[],'USD','2025-01-03');assert.deepEqual(r.points.map(p=>p.gain),[0,20]);
 });
+test('a missing purchase FX rate cannot erase independent recorded dividend cash flows',()=>{const result=reconstructPerformance([trade('buy','2025-01-02',1,10,{currency:'EUR'}),{type:'dividend',symbol:'TEST',date:'2025-01-03',currency:'USD',amount:5,tax:1,fees:0}],series,[],'USD','2025-01-03');assert.equal(result.points[0].netFlow,null);assert.equal(result.points[0].income,0);assert.equal(result.points[1].income,4);assert.equal(result.points[1].netFlow,0);});
