@@ -73,11 +73,12 @@ function cards(s,f){const c=performanceContext(),capital=investedCapital(c.tx,st
  [p.valueComplete?'Portfolio value':'Known holdings subtotal',p.valueComplete?p.value:p.knownValue,p.valueComplete?(usingCached?'Includes last confirmed prices · check timestamps':'Latest position prices · cash excluded'):'Partial value · '+p.coveredHoldings+'/'+p.totalHoldings+' holdings priced · cash excluded'],
  ['Total return',p.complete?p.gain:null,'Realised + unrealised gains + dividends recorded'],
  ['Realised earnings',earned,'Closed-trade gains + dividends recorded'],
+ ['Unrealised gains',p.unrealized,'Open positions · excludes realised gains and dividends'],
  ['Dividends this month',income.thisMonth,new Date().toLocaleDateString('en',{month:'long',year:'numeric'})+' · received'],
  ['Dividends this year',income.thisYear,new Date().getUTCFullYear()+' calendar year · received'],
  ['Yearly dividend estimate',f.events.length||!f.missing.length?f.total:null,'Next 12 months · estimated gross income'+(f.missing.length?' · partial coverage':'')],
  ['Invested capital',capital.currentCost,'Acquisition cost of current holdings · includes recorded fees']
- ].map(([label,value,note],i)=>`<div class="card ${i===1?'highlight':''}"><div class="card-label">${label}</div><div class="big-number ${[1,2].includes(i)&&Number.isFinite(value)?value>=0?'positive':'negative':''}">${money(value)}</div><div class="card-note">${note}</div></div>`).join('')}</div>`;}
+ ].map(([label,value,note],i)=>`<div class="card ${i===1?'highlight':''}"><div class="card-label">${label}</div><div class="big-number ${[1,2,3].includes(i)&&Number.isFinite(value)?value>=0?'positive':'negative':''}">${money(value)}</div><div class="card-note">${note}</div></div>`).join('')}</div>`;}
 function incomeMonthBreakdown(c,f,income,unknownEstimate=false){
  if(!incomeSelection||incomeSelection.scope!==accountFilter||!incomeSelection.month.startsWith(incomeYear+'-'))return '';
  const key=incomeSelection.month,month=income.months.find(m=>m.key===key),now=today(),received=c.tx.filter(t=>isDividendIncome(t)&&t.date<=now&&t.date.slice(0,7)===key).map(t=>({...t,value:convert(t.amount-t.tax-t.fees,t.currency,state.base,fx)})),estimated=f.events.filter(e=>e.date>now&&e.date.slice(0,7)===key).map(e=>({...e,value:e.amount}));
