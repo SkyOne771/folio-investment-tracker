@@ -15,6 +15,12 @@ export function prepareXtbBatch(existing,entries){
    const preview=parseXtbSheets(entry.loaded.sheets,entry.options);files.push({index,accountId:preview.accountId,preview,errors:[...preview.errors]});
   }catch(e){files.push({index,preview:null,errors:[e.message||'Could not preview this statement.']});}
  }
+ // Resolve all selected ranges together, including earlier ranges in this batch.
+ const selected=files.flatMap(f=>f.preview?.transactions||[]);
+ for(const file of files){if(!file.preview)continue;try{
+  const preview=parseXtbSheets(entries[file.index].loaded.sheets,{...entries[file.index].options,existingTransactions:mergeXtbTransactions(existing,{errors:[],transactions:selected}).transactions});
+  file.preview=preview;file.errors=[...preview.errors];
+ }catch(e){file.errors=[e.message];}}
  const accounts=[...new Set(files.map(f=>f.accountId).filter(Boolean))];
  const errors=files.flatMap(f=>f.errors.map(error=>({index:f.index,error})));
  if(!files.length||errors.length)return {ready:false,files,accounts,errors,result:null};

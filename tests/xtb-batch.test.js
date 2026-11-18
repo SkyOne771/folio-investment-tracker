@@ -8,3 +8,19 @@ test('one invalid destination blocks the entire batch without producing partial 
 test('successful state update keeps existing records and broker connection metadata untouched',()=>{const first=prepareXtbBatch([], [entry('regular','existing','PLN')]);const state={version:1,demo:false,transactions:first.result.transactions,broker:{accountId:'fixture'},xtbAccounts:[{accountId:'xtb:regular:existing:PLN'}]};const before=JSON.stringify(state);const batch=prepareXtbBatch(state.transactions,four());const next=createXtbBatchState(state,batch);assert.equal(JSON.stringify(state),before);assert.equal(next.transactions.length,10);assert.equal(next.xtbAccounts.length,5);assert.deepEqual(next.broker,state.broker);});
 test('re-importing the batch deduplicates across every destination',()=>{const entries=four(),first=prepareXtbBatch([],entries),again=prepareXtbBatch(first.result.transactions,entries);assert.equal(again.ready,true);assert.equal(again.result.added,0);assert.equal(again.result.duplicates,8);assert.equal(again.result.transactions.length,8);});
 test('conflicting operation values block all writes, including otherwise valid destinations',()=>{const entries=four(),duplicate=structuredClone(entries[0]);duplicate.loaded.sheets[0].data[1][4]=-101;const batch=prepareXtbBatch([], [...entries,duplicate]);assert.equal(batch.ready,false);assert.equal(batch.result,null);assert.match(batch.errors[0].error,/conflicting/);});
+test('incremental snapshots reconcile saved same-account history, overlap and selected ranges without inventing opening trades',()=>{
+ const prior=entry('ike','retire','PLN'), later=entry('ike','retire','PLN');
+ prior.loaded.sheets[0].data=prior.loaded.sheets[0].data.slice(0,2);
+ later.loaded.sheets[0].data=[prior.loaded.sheets[0].data[0],[3,'Stock purchase','2026-11-18','AAPL.US',-50,'OPEN BUY 1 @ 50']];
+ const snapshot=(e,q)=>e.loaded.sheets.push({sheet:'Open Positions',data:[['Data as of report generated','2026-11-18'],['Product','Position','Symbol','Type','Volume','Margin'],['IKE',100,'AAPL.US','BUY',q,0]]});
+ snapshot(later,3);
+ const saved=prepareXtbBatch([], [prior]).result.transactions;
+ const incremental=prepareXtbBatch(saved,[later]);assert.equal(incremental.ready,true);assert.equal(incremental.result.added,1);assert.equal(ledger(incremental.result.transactions).holdings[0].quantity,3);
+ const again=prepareXtbBatch(incremental.result.transactions,[later]);assert.equal(again.ready,true);assert.equal(again.result.added,0);assert.equal(again.result.duplicates,1);
+ assert.equal(prepareXtbBatch([], [later]).ready,false);
+ const wrong=prepareXtbBatch([], [entry('regular','retire','PLN')]).result.transactions;
+ assert.equal(prepareXtbBatch(wrong,[later]).ready,false);
+ const future=structuredClone(saved);future[0].date='2026-11-19';future[0].occurredAt='2026-11-19T00:00:00.000Z';assert.equal(prepareXtbBatch(future,[later]).ready,false);
+ assert.equal(prepareXtbBatch([], [later,prior]).ready,true);
+ const mismatch=structuredClone(later);mismatch.loaded.sheets[1].data[2][4]=4;assert.equal(prepareXtbBatch(saved,[mismatch]).ready,false);
+});

@@ -98,8 +98,16 @@ export function parseXtbSheets(sheets,options){
   if(dividends.length>1&&taxes.length)warnings.push(`${group[0].rawSymbol} ${group[0].date}: withholding tax allocated across same-day dividends in proportion to gross amounts.`);
   for(const r of [...trades,...dividends,...adjustments]){const map=mappings[r.rawSymbol]||inferXtbSymbol(r.rawSymbol);if(!map.currency||!CURRENCIES.includes(map.currency)||!map.symbol){errors.push(`${r.row}: confirm a market symbol and instrument currency for ${r.rawSymbol}.`);continue;}try{const t=validateTransaction({id:r.id,symbol:map.symbol,name:r.name,type:r.kind,incomeKind:r.incomeKind,date:r.date,currency,quantity:r.quantity||0,price:r.quantity?Math.abs(r.amount)/r.quantity:0,amount:['dividend','income-adjustment'].includes(r.kind)?r.amount:0,tax:r.kind==='dividend'&&gross?tax*r.amount/gross:0,fees:Math.max(0,tradeFees.get(r.id)||0),source:'xtb',accountId,accountType,accountRef,marketCurrency:map.currency,brokerSymbol:r.rawSymbol,occurredAt:r.occurredAt,executionPrice:r.executionPrice||0,matchedPosition:r.matchedPosition,reportedPrincipal:r.reportedPrincipal});transactions.push(t);}catch(e){errors.push(`${r.row}: ${e.message}`);}}
  }
- const reconciliation=reconcileXtbPositions(transactions,positions);
- if(reconciliation.status==='mismatch')for(const difference of reconciliation.differences)errors.push(`Position reconciliation failed for ${difference.symbol}: imported ${difference.imported??'unknown'} shares, statement ${difference.statement??'unknown'}. Export complete history.`);
+ // A date-range statement is an incremental ledger, but its open positions are
+ // a full account snapshot. Reconcile the deduplicated account history as of
+ // that snapshot, never another cash account or trades recorded afterwards.
+ let reconciliationTransactions=transactions;
+ if(options.existingTransactions?.length){
+  const merged=mergeXtbTransactions(options.existingTransactions,{errors:[],transactions});
+  reconciliationTransactions=merged.transactions.filter(t=>t.source==='xtb'&&t.accountId===accountId&&(!positions.snapshotDate||t.date<=positions.snapshotDate));
+ }
+ const reconciliation=reconcileXtbPositions(reconciliationTransactions,positions);
+ if(reconciliation.status==='mismatch')for(const difference of reconciliation.differences)errors.push(`Position reconciliation failed for ${difference.symbol}: saved + selected history ${Number.isFinite(difference.imported)?Number(difference.imported.toFixed(8)):'unknown'} shares, statement ${Number.isFinite(difference.statement)?Number(difference.statement.toFixed(8)):'unknown'}. Import missing earlier trades for this same account, or export complete history.`);
  if(reconciliation.adjustedLots)warnings.push(`${reconciliation.adjustedLots} snapshot lots also appear as closed on the report date; they were removed from the reconciliation snapshot to avoid double-counting. The transaction ledger is retained.`);
  if(usedLots.size)warnings.push(`${usedLots.size} equity sales use Closed Positions sale values, which include the separate cash profit components.`);
  return {accountId,accountType,accountRef,currency,reconciliation,included,transactions:transactions.sort((a,b)=>a.occurredAt.localeCompare(b.occurredAt)),errors,ignored,warnings,symbols:[...symbols].map(raw=>({raw,...(mappings[raw]||inferXtbSymbol(raw))})),recognizedRows:records.length};
