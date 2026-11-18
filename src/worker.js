@@ -5,9 +5,15 @@ import {readBrokerBody,brokerGuard,createBrokerLimiter} from './security.js';
 import {trading212,brokerReachability} from './brokers.js';
 import {page,client,coreSource,style} from '../worker/assets.js';
 const allowBroker=createBrokerLimiter();
-const cache=new Map(),pending=new Map();
+// Cache completed market data only. Request-owned fetch promises must never
+// escape into another Cloudflare Worker invocation.
+const cache=new Map();
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json','cache-control':'no-store, private','referrer-policy':'no-referrer','x-content-type-options':'nosniff'}});
-async function cached(key,ttl,fn){const old=cache.get(key);if(old&&Date.now()-old.at<ttl)return {...old.data,cached:true};if(pending.has(key))return pending.get(key);const p=(async()=>{try{const data=await fn();if(cache.size>300)cache.delete(cache.keys().next().value);cache.set(key,{data,at:Date.now()});return data;}catch(e){if(old)return {...old.data,stale:true,error:e.message};throw e;}finally{pending.delete(key);}})();pending.set(key,p);return p;}
+async function cached(key,ttl,fn){
+ const old=cache.get(key);if(old&&Date.now()-old.at<ttl)return {...old.data,cached:true};
+ try{const data=await fn();if(cache.size>300)cache.delete(cache.keys().next().value);cache.set(key,{data,at:Date.now()});return data;}
+ catch(e){if(old)return {...old.data,stale:true,error:e.message};throw e;}
+}
 async function upstream(url,timeout=12000){const r=await fetch(url,{headers:{'User-Agent':'InvestmentTracker/1.0 (personal portfolio)'},signal:AbortSignal.timeout(timeout)});if(!r.ok)throw Error(`Data provider returned HTTP ${r.status}`);return r.json();}
 async function quoteUpstream(path){try{return await upstream('https://query1.finance.yahoo.com'+path,7000);}catch{return upstream('https://query2.finance.yahoo.com'+path,7000);}}
 export async function quote(symbol,env={}){
