@@ -92,8 +92,10 @@ function overviewReturnCards(performance,capital,forecastData){
  yearAgo.setUTCFullYear(yearAgo.getUTCFullYear()-1);
  const priorYearEnd=String(now.getUTCFullYear()-1)+'-12-31';
  const tx=historicalTransactions(state,accountFilter);
- const ready=historyData.key===historyRequestKey(tx)&&historyData.hasLoaded&&!historyData.loading;
- const points=ready&&tx.length?reconstructedChart(tx).points:[];
+ const matching=historyData.key===historyRequestKey(tx);
+ const ready=matching&&historyData.hasLoaded;
+ const progress=matching&&historyData.loading?historyData.progress:null;
+ const points=matching&&tx.length&&(ready||progress?.completed)?reconstructedChart(tx).points:[];
  function periodReturn(start){
   const window=points.filter(point=>point.date>=start);
   const growth=investmentGrowth(window);
@@ -107,7 +109,7 @@ function overviewReturnCards(performance,capital,forecastData){
   ['Unrealised return',Number.isFinite(performance.unrealized)&&capital.currentCost>0?performance.unrealized/capital.currentCost:null,'Open-position gain or loss ÷ acquisition cost'],
   ['Estimated dividend yield',positiveValue&&(forecastData.events.length||!forecastData.missing.length)?forecastData.total/performance.value:null,'Next 12 months · estimated gross dividends ÷ current value'+(forecastData.missing.length?' · partial coverage':'')]
  ];
- return `<div class="cards income-cards">${metrics.map(([label,value,note],index)=>`<div class="card"><div class="card-label">${label}</div><div class="big-number ${index<3&&Number.isFinite(value)&&value!==0?(value>0?'positive':'negative'):''}">${portfolioPercent(value,1)}</div><div class="card-note">${note}${index<2?' · recorded history · adjusted for capital flows':''}${index<2&&value===null?(historyData.loading?' · loading history':ready?' · incomplete history':' · waiting for historical prices'):''}</div></div>`).join('')}</div>`;
+ return `<div class="cards income-cards">${metrics.map(([label,value,note],index)=>`<div class="card"><div class="card-label">${label}</div><div class="big-number ${index<3&&Number.isFinite(value)&&value!==0?(value>0?'positive':'negative'):''}">${portfolioPercent(value,1)}</div><div class="card-note">${note}${index<2?' · recorded history · adjusted for capital flows':''}${index<2&&value===null?(progress?` · checking prices (${progress.completed}/${progress.total})`:matching&&historyData.loading?' · loading history':ready?' · incomplete history':' · waiting for historical prices'):''}</div></div>`).join('')}</div>`;
 }
 function cards(s,f){const c=performanceContext(),capital=investedCapital(c.tx,state.base,fx,c.holdings,c.broker),p=portfolioPerformance(c.tx,quotes,state.base,fx,c.holdings,c.broker),income=dividendIncome(c.tx,f.events,state.base,fx);const earned=Number.isFinite(p.realized)&&Number.isFinite(p.paid)?p.realized+p.paid:null,usingCached=s.rows.some(h=>quotes[h.symbol]?.stale);return `<div class="cards income-cards">${[
  [p.valueComplete?'Portfolio value':'Known holdings subtotal',p.valueComplete?p.value:p.knownValue,p.valueComplete?(usingCached?'Includes last confirmed prices · check timestamps':'Latest position prices · cash excluded'):'Partial value · '+p.coveredHoldings+'/'+p.totalHoldings+' holdings priced · cash excluded'],
@@ -169,13 +171,17 @@ async function loadPerformanceHistory(force=false){
  cutoff.setUTCDate(cutoff.getUTCDate()-(range===365?366:range));
  const from=cutoff.toISOString().slice(0,10);
  const opening=ledger(tx.filter(t=>!range||t.date<from)).holdings;
- const symbols=[...new Set([
+ const yearStart=today().slice(0,4)+'-01-01';
+ const recent=range?ledger(tx.filter(t=>t.date<yearStart)).holdings:[];
+ const candidates=new Set([
   ...opening.map(h=>h.symbol),
   ...tx.filter(t=>(!range||t.date>=from)&&['buy','sell','split'].includes(t.type)).map(t=>t.symbol)
- ])];
+ ]);
+ const priority=new Set([...recent.map(h=>h.symbol),...tx.filter(t=>t.date>=yearStart).map(t=>t.symbol)]);
+ const symbols=[...candidates].sort((a,b)=>Number(priority.has(b))-Number(priority.has(a)));
  const data=historyData,currencies=[...new Set(tx.flatMap(t=>[t.currency,t.marketCurrency]).filter(Boolean))].filter(c=>c!==base).sort();let next=0,completed=0,lastPaint=0;
  data.progress={completed,total:symbols.length};
- const paint=()=>{if(version!==historyVersion)return;historyChartCache=null;if(view==='capital'||view==='overview'&&performanceRange!==1)render();};
+ const paint=()=>{if(version!==historyVersion)return;historyChartCache=null;if(needsPerformanceHistory())render();};
  const loadFx=async list=>{try{const result=await api('/api/fx/history?base='+base+'&start='+start+'&currencies='+list.join(','));if(result.stale)data.errors.push('Historical FX: using cached dated reference rates while the provider is unavailable.');data.fxRows=result.rows;paint();}catch(e){data.errors.push('Historical FX: '+e.message);}};
  const fxTask=loadFx(currencies);
  const tasks=symbols.map(symbol=>async()=>{try{if(!force&&data.series[symbol]&&!data.series[symbol].stale)return;const instrument=tx.find(t=>t.symbol===symbol),symbolStart=tx.filter(t=>t.symbol===symbol).map(t=>t.date).sort()[0],path=symbol.startsWith('T212-')?'/api/history/resolve?isin='+encodeURIComponent(instrument.isin)+'&currency='+encodeURIComponent(instrument.currency):'/api/history?symbol='+encodeURIComponent(symbol);const result=await api(path+'&start='+symbolStart);if(result.stale)data.errors.push(historySymbolLabel(symbol)+': using cached historical closes while the provider is unavailable; dates beyond the cached series remain subject to the normal age limit.');data.series[symbol]=result;}catch(e){data.errors.push(historySymbolLabel(symbol)+': '+e.message);}finally{data.progress={completed:++completed,total:symbols.length};if(Date.now()-lastPaint>3000){lastPaint=Date.now();paint();}}});
