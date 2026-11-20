@@ -51,10 +51,26 @@ function commitPortfolio(next,{recovery=false}={}){if(storageReadFailed&&!recove
 function save(){try{commitPortfolio(state);return true;}catch(e){notice(e.message);return false;}}
 function notice(message){$('#notice').hidden=!message;$('#notice').textContent=message||'';}
 function toast(s){$('#toast').textContent=s;$('#toast').style.display='block';setTimeout(()=>$('#toast').style.display='none',3500);}
-function money(v,c=state.base){return v===null||!Number.isFinite(v)?'—':new Intl.NumberFormat('en',{style:'currency',currency:c,maximumFractionDigits:2}).format(v);}
-const num=n=>new Intl.NumberFormat('en',{maximumFractionDigits:5}).format(n);
-const date=d=>new Date(d+'T12:00:00Z').toLocaleDateString('en',{day:'numeric',month:'short',year:'numeric',timeZone:'Europe/Warsaw'});
-function polandTime(value,{includeDate=false}={}){const d=new Date(value);return Number.isFinite(d.getTime())?new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Warsaw',...(includeDate?{day:'2-digit',month:'short',year:'numeric'}:{}),hour:'2-digit',minute:'2-digit',hour12:false}).format(d):'Unavailable';}
+const moneyFormats=new Map();
+const quantityFormat=new Intl.NumberFormat('en',{maximumFractionDigits:5});
+const dateFormat=new Intl.DateTimeFormat('en',{day:'numeric',month:'short',year:'numeric',timeZone:'Europe/Warsaw'});
+const timeOptions={timeZone:'Europe/Warsaw',hour:'2-digit',minute:'2-digit',hour12:false};
+const timeFormat=new Intl.DateTimeFormat('en-GB',timeOptions);
+const dateTimeFormat=new Intl.DateTimeFormat('en-GB',{...timeOptions,day:'2-digit',month:'short',year:'numeric'});
+function money(value,currency=state.base){
+ if(!Number.isFinite(value))return '—';
+ if(!moneyFormats.has(currency))moneyFormats.set(currency,new Intl.NumberFormat('en',{style:'currency',currency,maximumFractionDigits:2}));
+ return moneyFormats.get(currency).format(value);
+}
+const num=value=>quantityFormat.format(value);
+function date(value){
+ const day=new Date(value+'T12:00:00Z');
+ return Number.isFinite(day.getTime())?dateFormat.format(day):'Invalid Date';
+}
+function polandTime(value,{includeDate=false}={}){
+ const date=new Date(value);
+ return Number.isFinite(date.getTime())?(includeDate?dateTimeFormat:timeFormat).format(date):'Unavailable';
+}
 function download(name,text,type='application/json'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
 async function api(path){const r=await fetch(path,{signal:AbortSignal.timeout(20000)});const d=await r.json();if(!r.ok)throw Error(d.error||'Request failed');return d;}
 function refresh(){return queuedRefresh();}
@@ -145,7 +161,7 @@ function benchmarkReference({start,end=today(),intraday=false,label='Price-retur
  const scale=chartScale(valid.map(p=>p.returnPct),{includeZero:true}),firstTime=points[0].time,lastTime=points.at(-1).time,x=p=>lastTime>firstTime?20+(p.time-firstTime)/(lastTime-firstTime)*660:350;
  return `<div class="benchmark-reference" data-benchmark="sp500"><div class="benchmark-reference-head"><span><i class="benchmark-key"></i>S&P 500 · ${esc(label)}</span><strong class="${last.returnPct>=0?'positive':'negative'}">${last.returnPct>=0?'+':''}${last.returnPct.toFixed(2)}%</strong></div><div class="scaled-chart">${valueAxis(scale.ticks,scale.y,215,null,'%')}<svg class="benchmark-spark" viewBox="0 0 700 215" preserveAspectRatio="none" role="img" aria-label="S&P 500 price-return reference">${scale.ticks.map(v=>`<line x1="0" x2="700" y1="${scale.y(v)}" y2="${scale.y(v)}" stroke-dasharray="3 6"/>`).join('')}${seriesSegments(returns,'returnPct').map(segment=>`<polyline class="benchmark-line" points="${segment.map(p=>x(p)+','+scale.y(p.returnPct)).join(' ')}" fill="none" stroke-width="2" vector-effect="non-scaling-stroke"/>`).join('')}</svg></div><p class="annual-note">${esc(new Date(firstTime).toISOString().slice(0,10))}–${esc(new Date(lastTime).toISOString().slice(0,10))} · ${intraday?'USD index return; daily FX held constant':esc(state.base)+' reference FX'} · excludes dividends. Separate market context; not dividend income or a dividend forecast.</p></div>`;
 }
-function valueAxis(ticks,y,height=215,pixelHeight=null,unit=state.base){const span=Math.abs(ticks.at(-1)-ticks[0]),digits=Math.max(0,Math.min(4,2-Math.floor(Math.log10(span||1))));const format=v=>new Intl.NumberFormat('en',{maximumFractionDigits:digits}).format(v);return `<div class="chart-y-axis" aria-label="Value scale in ${esc(unit)}" ${pixelHeight?`style="height:${pixelHeight}px"`:''}><small class="axis-currency">${esc(unit)}</small>${ticks.map(value=>`<span style="top:${y(value)/height*100}%">${esc(format(value))}</span>`).join('')}</div>`;}
+function valueAxis(ticks,y,height=215,pixelHeight=null,unit=state.base){const span=Math.abs(ticks.at(-1)-ticks[0]),digits=Math.max(0,Math.min(4,2-Math.floor(Math.log10(span||1))));const {format}=new Intl.NumberFormat('en',{maximumFractionDigits:digits});return `<div class="chart-y-axis" aria-label="Value scale in ${esc(unit)}" ${pixelHeight?`style="height:${pixelHeight}px"`:''}><small class="axis-currency">${esc(unit)}</small>${ticks.map(value=>`<span style="top:${y(value)/height*100}%">${esc(format(value))}</span>`).join('')}</div>`;}
 function incomeAxis(max,signed=false){const ticks=signed?[max,max/2,0,-max/2,-max]:[max,max/2,0],height=signed?150:130,y=v=>signed?75-v/max*60:130-v/max*120;return valueAxis(ticks,y,height,height);}
 function portfolioPercent(change,opening){return Number.isFinite(change)&&Number.isFinite(opening)&&opening>0?new Intl.NumberFormat('en',{style:'percent',minimumFractionDigits:2,maximumFractionDigits:2,signDisplay:'exceptZero'}).format(change/opening):'—';}
 function changeLabel(value){return !Number.isFinite(value)?'Unavailable':Math.abs(value)<0.005?'No change':value>0?'Gain':'Loss';}
