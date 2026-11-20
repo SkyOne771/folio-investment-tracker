@@ -1,4 +1,4 @@
-import {ledger,summary,convert,isDividendIncome} from './core.js';
+import {createLedger,summarizeLedger,transactionOrder,convert,isDividendIncome} from './core.js';
 
 // Yahoo closes are split-adjusted. Undo splits after the valuation date so
 // historical share counts are valued in the units actually held that day.
@@ -14,20 +14,28 @@ export function reconstructPerformance(transactions,series,fxRows,base,end=new D
  const tx=transactions.filter(t=>t.date<=end).sort((a,b)=>a.date.localeCompare(b.date));if(!tx.length)return {points:[],missing:[]};
  const holdingKey=h=>(h.accountId||'manual')+'|'+h.currency+'|'+h.symbol,names=new Map(tx.filter(t=>t.name).map(t=>[holdingKey(t),t.name]));
  const start=tx[0].date,points=[],missing=new Set(),rates={},currencyDates={};let cursor=0,fxCursor=0;
+ const book=createLedger(),dividends=[];
  const rows=[...fxRows].sort((a,b)=>a.date.localeCompare(b.date)),fixedRates={};if(options.fixedFxDate){for(const r of rows)if(r.base===base&&r.date<=options.fixedFxDate&&Date.parse(options.fixedFxDate)-Date.parse(r.date)<=7*86400000&&r.rate>0)fixedRates[r.quote]={[base]:1/r.rate};}
  for(let ms=Date.parse(start);ms<=Date.parse(end);ms+=86400000){const day=new Date(ms).toISOString().slice(0,10);
-  while(cursor<tx.length&&tx[cursor].date<=day)cursor++;
+  const firstToday=cursor;
+  while(cursor<tx.length&&tx[cursor].date<=day){
+   const trade=tx[cursor++];
+   if(isDividendIncome(trade))dividends.push(trade);
+
+  }
+  const operations=tx.slice(firstToday,cursor);
+  for(const trade of [...operations].sort(transactionOrder))book.add(trade);
   while(fxCursor<rows.length&&rows[fxCursor].date<=day){const r=rows[fxCursor++];if(r.base===base&&r.rate>0){rates[r.quote]=1/r.rate;currencyDates[r.quote]=r.date;}}
   const dayFx=options.fixedFxDate?fixedRates:Object.fromEntries(Object.entries(rates).filter(([c])=>ms-Date.parse(currencyDates[c])<=7*86400000).map(([c,rate])=>[c,{[base]:rate}]));
-  const current=tx.slice(0,cursor),holdings=ledger(current).holdings,quotes={};
+  const snapshot=book.snapshot(),{holdings}=snapshot,quotes={};
   for(const h of holdings){const s=series[h.symbol],price=historicalClose(s,day);if(price!==null)quotes[h.symbol]={currency:s.currency,price};}
-  const total=summary(current,quotes,base,dayFx);
+  const total=summarizeLedger(snapshot,dividends,quotes,base,dayFx);
   const knownRows=total.rows.filter(h=>Number.isFinite(h.value)),missingHoldings=total.rows.filter(h=>!Number.isFinite(h.value)).map(h=>({key:holdingKey(h),symbol:h.symbol,name:names.get(holdingKey(h))||h.symbol,accountId:h.accountId||'manual',currency:h.marketCurrency||h.currency,reason:h.symbol.startsWith('T212-')&&!series[h.symbol]?.resolvedSymbol?'Market symbol not mapped':!quotes[h.symbol]?'Historical price unavailable':quotes[h.symbol].currency!==(h.marketCurrency||h.currency)?'Quote currency does not match instrument':'Historical FX unavailable'})),knownValue=knownRows.reduce((sum,h)=>sum+h.value,0),coverageKey=missingHoldings.map(h=>h.key).sort().join(';');
   for(const item of total.missing)missing.add(item);
-  const incomeComplete=current.filter(isDividendIncome).every(t=>convert(t.amount-t.tax-t.fees,t.currency,base,dayFx)!==null);
+  const incomeComplete=dividends.every(t=>convert(t.amount-t.tax-t.fees,t.currency,base,dayFx)!==null);
   // Actual cash entering/leaving securities, translated on the operation day.
   // This distinguishes price/FX gains on existing capital from new purchases.
-  let netFlow=0,income=0,flowsComplete=true,cashIncomeComplete=true;for(const t of current.filter(t=>t.date===day)){let target,amount;if(t.type==='buy'){target='flow';amount=t.quantity*t.price+t.fees;}else if(t.type==='sell'){target='flow';amount=-(t.quantity*t.price-t.fees);}else if(isDividendIncome(t)){target='income';amount=t.amount-t.tax-t.fees;}else continue;const converted=convert(amount,t.currency,base,dayFx);if(converted===null){if(target==='flow')flowsComplete=false;else cashIncomeComplete=false;continue;}if(target==='flow')netFlow+=converted;else income+=converted;}
+  let netFlow=0,income=0,flowsComplete=true,cashIncomeComplete=true;for(const t of operations){let target,amount;if(t.type==='buy'){target='flow';amount=t.quantity*t.price+t.fees;}else if(t.type==='sell'){target='flow';amount=-(t.quantity*t.price-t.fees);}else if(isDividendIncome(t)){target='income';amount=t.amount-t.tax-t.fees;}else continue;const converted=convert(amount,t.currency,base,dayFx);if(converted===null){if(target==='flow')flowsComplete=false;else cashIncomeComplete=false;continue;}if(target==='flow')netFlow+=converted;else income+=converted;}
   points.push({date:day,gain:total.missing.length?null:total.totalGain,value:missingHoldings.length?null:knownValue,knownValue:knownRows.length||!holdings.length?knownValue:null,coveredHoldings:knownRows.length,totalHoldings:holdings.length,missingHoldings,coverageKey,paid:incomeComplete?total.paid:null,netFlow:flowsComplete?netFlow:null,income:cashIncomeComplete?income:null});
  }
  return {points,missing:[...missing],start};

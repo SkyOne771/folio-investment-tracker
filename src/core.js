@@ -40,10 +40,11 @@ export function validateTransaction(input){
  if(input.source==='trading212'){t.source='trading212';if(typeof input.brokerTicker==='string')t.brokerTicker=input.brokerTicker;}
  return t;
 }
-export function ledger(transactions){
+export function transactionOrder(a,b){return a.date.localeCompare(b.date)||(a.occurredAt||'').localeCompare(b.occurredAt||'');}
+export function createLedger(){
  const holdings={},realized={};
- for(const t of [...transactions].sort((a,b)=>a.date.localeCompare(b.date)||(a.occurredAt||'').localeCompare(b.occurredAt||''))){
-  if(isDividendIncome(t))continue;
+ function add(t){
+  if(isDividendIncome(t))return;
   const key=(t.accountId||'manual')+(t.source==='xtb'?'|'+t.currency:'')+'|'+t.symbol;
   const h=holdings[key]||={symbol:t.symbol,currency:t.currency,quantity:0,cost:0,accountId:t.accountId,accountType:t.accountType,accountRef:t.accountRef,source:t.source,marketCurrency:t.marketCurrency};
   if(h.currency!==t.currency)throw Error(`${t.symbol}: transactions must use the same trading currency.`);
@@ -56,13 +57,21 @@ export function ledger(transactions){
    h.quantity-=t.quantity;h.cost-=cost;
   }
  }
- return {holdings:Object.values(holdings).filter(h=>h.quantity>1e-8),realized};
+ return {add, snapshot:()=>({holdings:Object.values(holdings).filter(h=>h.quantity>1e-8),realized})};
+}
+export function ledger(transactions){
+ const book=createLedger();
+ for(const t of [...transactions].sort(transactionOrder))book.add(t);
+ return book.snapshot();
 }
 export function convert(amount,from,to,fx){if(from===to)return amount;const rate=fx[from]?.[to];return Number.isFinite(rate)&&rate>0?amount*rate:null;}
 export function summary(transactions,quotes,base,fx,brokerHoldings=[]){
- const {holdings,realized}=ledger(transactions);let value=0,cost=0,paid=0,gainRealized=0;const missing=[];
+ return summarizeLedger(ledger(transactions),transactions.filter(isDividendIncome),quotes,base,fx,brokerHoldings);
+}
+export function summarizeLedger({holdings,realized},dividends,quotes,base,fx,brokerHoldings=[]){
+ let value=0,cost=0,paid=0,gainRealized=0;const missing=[];
  const rows=[...holdings,...brokerHoldings].map(h=>{const q=quotes[h.symbol];const v=q&&q.currency===(h.marketCurrency||h.currency)?convert(h.quantity*q.price,q.currency,base,fx):null;const c=convert(h.cost,h.currency,base,fx);if(v===null||c===null)missing.push(h.symbol);else {value+=v;cost+=c;}return {...h,quote:q,value:v,costBase:c,gain:v===null||c===null?null:v-c};});
- for(const t of transactions.filter(isDividendIncome)){const n=convert(t.amount-t.tax-t.fees,t.currency,base,fx);if(n===null)missing.push(`${t.currency} dividends`);else paid+=n;}
+ for(const t of dividends){const n=convert(t.amount-t.tax-t.fees,t.currency,base,fx);if(n===null)missing.push(`${t.currency} dividends`);else paid+=n;}
  for(const [currency,amount] of Object.entries(realized)){const n=convert(amount,currency,base,fx);if(n===null)missing.push(`${currency} gains`);else gainRealized+=n;}
  return {rows,value,cost,paid,realized:gainRealized,unrealized:value-cost,totalGain:value-cost+paid+gainRealized,missing:[...new Set(missing)]};
 }
