@@ -85,6 +85,30 @@ const queuedRefresh=createRefreshQueue(async()=>{busy=true;render();$('#refresh'
 });
 function assetName(h){const position=brokerRows().find(p=>p.symbol===h.symbol||(h.brokerTicker&&p.brokerTicker===h.brokerTicker));const identifiers=new Set([h.symbol,h.brokerTicker,position?.brokerTicker].filter(Boolean).flatMap(s=>[s,s.replaceAll('_','-')]).map(s=>s.toUpperCase()));return [h.name,position?.name,quotes[h.symbol]?.name,state.assetNames?.[h.symbol],state.transactions.find(t=>t.symbol===h.symbol&&t.name)?.name].find(n=>typeof n==='string'&&n.trim()&&!identifiers.has(n.trim().toUpperCase()))?.trim()||h.symbol;}
 function ticker(h){const name=assetName(h),logo=assetLogo({...h,name});return `<div class="ticker"><span class="ticker-icon"><span aria-hidden="true">${esc(name.slice(0,1))}</span>${logo?`<img class="asset-logo" src="${logo}" alt="" width="32" height="32" loading="lazy" decoding="async">`:''}</span><div><strong>${esc(name)}</strong><small>${esc(h.source==='t212-history'?(h.brokerSymbol||'Dividend adjustment'):h.symbol)}${h.combinedPositions?' · '+h.combinedPositions+' positions':h.accountId?' · '+esc(accountLabel(h.accountId)):''}</small></div></div>`;}
+function overviewReturnCards(performance,capital,forecastData){
+ if(view!=='overview')return '';
+ const now=new Date();
+ const yearAgo=new Date(now);
+ yearAgo.setUTCFullYear(yearAgo.getUTCFullYear()-1);
+ const priorYearEnd=String(now.getUTCFullYear()-1)+'-12-31';
+ const tx=historicalTransactions(state,accountFilter);
+ const ready=(performanceRange===365||performanceRange===0)&&historyData.key===historyRequestKey(tx)&&historyData.hasLoaded&&!historyData.loading;
+ const points=ready&&tx.length?reconstructedChart(tx).points:[];
+ function periodReturn(start){
+  const window=points.filter(point=>point.date>=start);
+  const growth=investmentGrowth(window);
+  return growth.length>1&&growth[0].date===start&&growth.at(-1).date===today()
+   ?growth.at(-1).growthPct/100:null;
+ }
+ const positiveValue=performance.valueComplete&&performance.value>0;
+ const metrics=[
+  ['Year-over-year return',periodReturn(yearAgo.toISOString().slice(0,10)),'Trailing 12 months'],
+  ['Year-to-date return',periodReturn(priorYearEnd),'Since the prior calendar year end'],
+  ['Unrealised return',Number.isFinite(performance.unrealized)&&capital.currentCost>0?performance.unrealized/capital.currentCost:null,'Open-position gain or loss ÷ acquisition cost'],
+  ['Estimated dividend yield',positiveValue&&(forecastData.events.length||!forecastData.missing.length)?forecastData.total/performance.value:null,'Next 12 months · estimated gross dividends ÷ current value'+(forecastData.missing.length?' · partial coverage':'')]
+ ];
+ return `<div class="cards income-cards">${metrics.map(([label,value,note],index)=>`<div class="card"><div class="card-label">${label}</div><div class="big-number ${index<3&&Number.isFinite(value)&&value!==0?(value>0?'positive':'negative'):''}">${portfolioPercent(value,1)}</div><div class="card-note">${note}${index<2?' · recorded history · adjusted for capital flows':''}${index<2&&value===null?(historyData.loading?' · loading history':ready?' · incomplete history':' · <button class="link-button" data-performance-range="365">Load 1Y history</button>'):''}</div></div>`).join('')}</div>`;
+}
 function cards(s,f){const c=performanceContext(),capital=investedCapital(c.tx,state.base,fx,c.holdings,c.broker),p=portfolioPerformance(c.tx,quotes,state.base,fx,c.holdings,c.broker),income=dividendIncome(c.tx,f.events,state.base,fx);const earned=Number.isFinite(p.realized)&&Number.isFinite(p.paid)?p.realized+p.paid:null,usingCached=s.rows.some(h=>quotes[h.symbol]?.stale);return `<div class="cards income-cards">${[
  [p.valueComplete?'Portfolio value':'Known holdings subtotal',p.valueComplete?p.value:p.knownValue,p.valueComplete?(usingCached?'Includes last confirmed prices · check timestamps':'Latest position prices · cash excluded'):'Partial value · '+p.coveredHoldings+'/'+p.totalHoldings+' holdings priced · cash excluded'],
  ['Total return',p.complete?p.gain:null,'Realised + unrealised gains + dividends recorded'],
@@ -94,7 +118,7 @@ function cards(s,f){const c=performanceContext(),capital=investedCapital(c.tx,st
  ['Dividends this year',income.thisYear,new Date().getUTCFullYear()+' calendar year · received'],
  ['Yearly dividend estimate',f.events.length||!f.missing.length?f.total:null,'Next 12 months · estimated gross income'+(f.missing.length?' · partial coverage':'')],
  ['Invested capital',capital.currentCost,'Acquisition cost of current holdings · includes recorded fees']
- ].map(([label,value,note],i)=>`<div class="card ${i===1?'highlight':''}"><div class="card-label">${label}</div><div class="big-number ${[1,2,3].includes(i)&&Number.isFinite(value)?value>=0?'positive':'negative':''}">${money(value)}</div><div class="card-note">${note}</div></div>`).join('')}</div>`;}
+ ].map(([label,value,note],i)=>`<div class="card ${i===1?'highlight':''}"><div class="card-label">${label}</div><div class="big-number ${[1,2,3].includes(i)&&Number.isFinite(value)?value>=0?'positive':'negative':''}">${money(value)}</div><div class="card-note">${note}</div></div>`).join('')}</div>`+overviewReturnCards(p,capital,f);}
 function incomeMonthBreakdown(c,f,income,unknownEstimate=false){
  if(!incomeSelection||incomeSelection.scope!==accountFilter||!incomeSelection.month.startsWith(incomeYear+'-'))return '';
  const key=incomeSelection.month,month=income.months.find(m=>m.key===key),now=today(),received=c.tx.filter(t=>isDividendIncome(t)&&t.date<=now&&t.date.slice(0,7)===key).map(t=>({...t,value:convert(t.amount-t.tax-t.fees,t.currency,state.base,fx)})),estimated=f.events.filter(e=>e.date>now&&e.date.slice(0,7)===key).map(e=>({...e,value:e.amount}));
@@ -141,7 +165,7 @@ async function loadPerformanceHistory(force=false){
  const start=tx.map(t=>t.date).sort()[0];
  const range=view==='capital'?0:performanceRange;
  const cutoff=new Date();
- cutoff.setUTCDate(cutoff.getUTCDate()-range);
+ cutoff.setUTCDate(cutoff.getUTCDate()-(range===365?366:range));
  const from=cutoff.toISOString().slice(0,10);
  const opening=ledger(tx.filter(t=>!range||t.date<from)).holdings;
  const symbols=[...new Set([
