@@ -33,8 +33,13 @@ export async function intradayQuote(symbol){return cached(`intraday:${symbol}`,6
  if(!m?.currency)throw Error('Minute prices unavailable for this instrument.');
  const periods=Object.entries(m.tradingPeriods||{}).filter(([name])=>['pre','regular','post'].includes(name)).flatMap(([name,rows])=>[rows].flat(Infinity).filter(p=>p?.start<p?.end).map(p=>({...p,name})));if(!periods.length)for(const [name,p] of Object.entries(m.currentTradingPeriod||{}))if(p?.start<p?.end)periods.push({...p,name});
  const scale=['GBp','GBX'].includes(m.currency)?0.01:1,points=(c.timestamp||[]).map((t,i)=>({time:t*1000,close:c.indicators?.quote?.[0]?.close?.[i]*scale,marketSession:periods.find(p=>t>=p.start&&t<p.end)?.name||'unknown'})).filter(p=>Number.isFinite(p.time)&&Number.isFinite(p.close)&&p.close>0);
- const previousClose=(m.previousClose??m.chartPreviousClose)*scale;if(!points.length&&!(previousClose>0))throw Error('No usable minute prices or previous close for this session.');
- return {symbol,currency:['GBp','GBX'].includes(m.currency)?'GBP':m.currency,previousClose,points,awaitingTrades:!points.length,asOf:points.length?new Date(points.at(-1).time).toISOString():m.regularMarketTime?new Date(m.regularMarketTime*1000).toISOString():null,extendedHoursRequested:true,fetchedAt:new Date().toISOString(),source:'Yahoo Finance · 1-minute intervals including available pre-market and after-hours · may be delayed'};
+ // Before the regular session, Yahoo's previousClose can lag a full session.
+ const regularTime=m.regularMarketTime*1000;
+ const hasConfirmedClose=regularTime>0&&regularTime<=Date.now()&&
+  (!points.length||regularTime<points[0].time)&&Number.isFinite(m.regularMarketPrice)&&m.regularMarketPrice>0;
+ const previousClose=(hasConfirmedClose?m.regularMarketPrice:m.previousClose??m.chartPreviousClose)*scale;
+ if(!points.length&&!(previousClose>0))throw Error('No usable minute prices or previous close for this session.');
+ return {symbol,currency:['GBp','GBX'].includes(m.currency)?'GBP':m.currency,previousClose,previousCloseAt:hasConfirmedClose?regularTime:null,points,awaitingTrades:!points.length,asOf:points.length?new Date(points.at(-1).time).toISOString():m.regularMarketTime?new Date(m.regularMarketTime*1000).toISOString():null,extendedHoursRequested:true,fetchedAt:new Date().toISOString(),source:'Yahoo Finance · 1-minute intervals including available pre-market and after-hours · may be delayed'};
  });}
 export async function fxRates(base){return cached(`fx:${base}`,3600000,async()=>{
  const currencies=['USD','EUR','GBP','PLN','CHF','CAD','JPY','AUD','SEK','DKK'],valid=d=>d&&/^\d{4}-\d{2}-\d{2}$/.test(d.date)&&currencies.every(c=>c===base||Number.isFinite(d.rates?.[c])&&d.rates[c]>0);

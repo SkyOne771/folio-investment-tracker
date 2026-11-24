@@ -202,7 +202,13 @@ async function loadIntraday(force=false){
  const holdings=[...ledger(state.transactions).holdings,...brokerRows()],symbols=[...new Set(holdings.map(h=>h.symbol))].sort(),key=JSON.stringify(symbols);
  if(minuteData.loading&&minuteData.key===key)return;if(!force&&minuteData.key===key&&Date.now()-minuteData.at<60000)return;
  const version=++minuteVersion,data={feeds:minuteData.key===key?minuteData.feeds:{},key,loading:true,errors:[],at:Date.now()};minuteData=data;if(performanceRange===1)render();let next=0;
- const tasks=symbols.map(symbol=>async()=>{try{const feed=await api('/api/intraday?symbol='+encodeURIComponent(symbol));if(feed.stale)throw Error('Stale minute feed');data.feeds[symbol]=feed;}catch(e){const close=confirmedCloseFeed(symbol,quotes[symbol]);if(close)data.feeds[symbol]=close;else delete data.feeds[symbol];data.errors.push(symbol+': '+e.message);}});
+ const tasks=symbols.map(symbol=>async()=>{try{const feed=await api('/api/intraday?symbol='+encodeURIComponent(symbol));if(feed.stale)throw Error('Stale minute feed');// The daily series can confirm the prior session even after regular trading starts.
+ const first=feed.points?.[0],daily=quotes[symbol];
+ const prior=first&&daily?.currency===feed.currency
+  ?daily.history?.filter(row=>row.date<sessionDay(first.time)).at(-1):null;
+ data.feeds[symbol]=prior?.close>0&&Date.parse(prior.date)>=first.time-7*86400000&&(!feed.previousCloseAt||prior.date>sessionDay(feed.previousCloseAt))
+  ?{...feed,previousClose:prior.close}:feed;
+ }catch(e){const close=confirmedCloseFeed(symbol,quotes[symbol]);if(close)data.feeds[symbol]=close;else delete data.feeds[symbol];data.errors.push(symbol+': '+e.message);}});
  await Promise.all(Array.from({length:Math.min(3,tasks.length)},async()=>{while(version===minuteVersion&&next<tasks.length)await tasks[next++]();}));
  if(version!==minuteVersion)return;
  for(const symbol of symbols)if(data.feeds[symbol]?.points?.length)quotes[symbol]=withLatestTrade(quotes[symbol],data.feeds[symbol]);

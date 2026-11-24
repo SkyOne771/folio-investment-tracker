@@ -19,3 +19,18 @@ test('overlapping requests never await another invocation’s pending market fet
   const cached=await get('/api/quote?symbol=CONTEXT-QA');assert.equal((await cached.json()).cached,true);assert.equal(calls,2);
  }finally{release?.();await Promise.allSettled([first,second]);globalThis.fetch=original;}
 });
+test('pre-market baseline uses the latest regular close when the provider previousClose is a session behind',async()=>{
+ const {intradayQuote}=await import('../dist/server/index.js');
+ const original=globalThis.fetch;
+ const closeTime=Math.floor(Date.now()/1000)-3600;
+ const preTime=closeTime+1800;
+ globalThis.fetch=async()=>Response.json({chart:{result:[{
+  meta:{currency:'USD',regularMarketTime:closeTime,regularMarketPrice:59.66,previousClose:51.28},
+  timestamp:[preTime],indicators:{quote:[{close:[56.68]}]}
+ }]}});
+ try{
+  const feed=await intradayQuote('PREMARKET-BASELINE-QA');
+  assert.equal(feed.previousClose,59.66);
+  assert.ok(feed.points[0].close<feed.previousClose);
+ }finally{globalThis.fetch=original;}
+});
